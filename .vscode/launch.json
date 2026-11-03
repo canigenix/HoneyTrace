@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "HoneyTrace: Demo (240 sessions)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/honeytrace.py",
+      "args": ["demo"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      "name": "HoneyTrace: Analyze Cowrie log",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/honeytrace.py",
+      "args": ["analyze", "data/cowrie.json"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    }
+  ]
+}
