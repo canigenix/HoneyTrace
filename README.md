@@ -1,0 +1,82 @@
+# HoneyTrace ML — Honeypot Intelligence (v0.1)
+
+A local-first, CPU-friendly tool for analyzing Cowrie SSH/Telnet honeypot JSON logs. It combines **transparent behavioral indicators** and **Isolation Forest anomaly detection** with a standalone, offline HTML dashboard. No cloud service, GPU, external API, or public port is required.
+
+> **Important:** v0.1's behavior *labels* are rule based. Machine learning detects *relative anomalies*, not proven malicious intent or attacker identity. Heuristic risk scores are not probabilities. Synthetic demo outcomes do not establish production accuracy.
+
+## Start in 3 steps (Windows PowerShell)
+
+Use Python 3.11+ and open a terminal inside this folder:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe honeytrace.py demo
+```
+
+Open `output/report.html` in your browser (double-click). Works offline, on CPU, and produces `output/analysis.json` as well.
+
+macOS/Linux:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python honeytrace.py demo
+```
+
+## Analyze real Cowrie logs
+
+Cowrie records events to `var/log/cowrie/cowrie.json` when JSON output is enabled. Copy the JSONL file into this project (for example, `data/cowrie.json`) and run:
+
+```powershell
+.\.venv\Scripts\python.exe honeytrace.py analyze data/cowrie.json
+```
+
+The dashboard/report overwrite the prior report on each run. Keep the source log private; honeypot logs may contain real IPs, usernames, typed commands, and credentials. This program **does not include passwords in the report**; still treat logs and reports as sensitive. Do not open untrusted `output/report.html` from unknown senders.
+
+### Optional: local-only Cowrie trial with Docker Desktop
+
+Run Cowrie **only on loopback**, not a public interface:
+
+```powershell
+docker run -d --name honeytrace-cowrie -p 127.0.0.1:2222:2222 cowrie/cowrie:latest
+```
+
+In another terminal, initiate an SSH connection: `ssh -p 2222 root@127.0.0.1`. Use test credentials only, then leave the session. Copy the captured JSON file (container layout may change by image version):
+
+```powershell
+docker cp honeytrace-cowrie:/cowrie/cowrie-git/var/log/cowrie/cowrie.json data/cowrie.json
+.\.venv\Scripts\python.exe honeytrace.py analyze data/cowrie.json
+```
+
+You can check the path with `docker exec honeytrace-cowrie pwd` or `docker exec honeytrace-cowrie find /cowrie -name cowrie.json` if needed. To stop: `docker stop honeytrace-cowrie`; to delete container: `docker rm honeytrace-cowrie`.
+
+**Security:** Local-only binding is not a complete security boundary. Use a dedicated VM or host, isolated from your home LAN; do not expose to the public internet or forward ports until properly isolated and hardened. Do not execute anything captured by a honeypot. File-download events are analyzed from metadata only—HoneyTrace does not fetch or run files.
+
+## Detection logic
+
+- Behaviors: credential guessing (>= 3 failures), system reconnaissance, payload-delivery indicators, persistence indicators, privilege exploration, suspicious/encoded execution, destructive-command indicators, and exploit event indicators.
+- Isolation Forest (scikit-learn) uses 13 per-session behavioral features with log-scaled counts and standardized inputs. It only runs with >= 25 sessions. A fixed 8% `contamination` makes the flag rate a chosen threshold, **not an estimated attack prevalence**.
+- The "ML anomaly percentile" is the session's *relative unusualness* in the supplied batch, **not confidence**. All events reaching a honeypot are worth review; an unflagged event is not necessarily safe.
+- Unmatched sessions are "Unclassified interaction", **not** "legitimate" or "benign".
+
+## Safety and privacy
+
+- Analysis is batch/offline; no service, background agent, or listener is started.
+- Untrusted JSON log entries are parsed, never executed. The HTML viewer renders attacker-controlled fields as text, not executable HTML.
+- Synthetic demo addresses are drawn exclusively from IANA TEST-NET ranges and demo URLs from the reserved `.invalid` domain.
+- Inputs are limited to 250,000 accepted events and 128 KB per line as basic safeguards. Large data should eventually use a streaming database pipeline.
+
+## Test
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+## Next milestones
+
+1. Collect labeled real-world sessions (ethically and with permissions) and quantify false positives.
+2. Train/evaluate a supervised multi-label classifier using held-out source groups and time slices.
+3. Add incremental ingestion, alerting and behavioral clustering without ever exposing the dashboard publicly by default.
+
+Not affiliated with Cowrie or StingBox. Cowrie documentation: https://docs.cowrie.org/ .

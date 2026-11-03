@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>HoneyTrace ML | Threat Intelligence Lab</title>
+<style>
+:root{--bg:#090f16;--surface:#101b28;--surface2:#152332;--line:#233343;--text:#ecf4f7;--muted:#8ba1b1;--amber:#f9b452;--red:#ff737d;--green:#61d6bd;--blue:#70a6ff}
+*{box-sizing:border-box}body{background:radial-gradient(ellipse 900px 360px at 80% -5%,#153346 0%,transparent 78%),var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;margin:0;min-height:100vh}button,input,select{font:inherit}
+.shell{max-width:1440px;margin:auto;padding:0 40px 58px}header{display:flex;align-items:center;justify-content:space-between;padding:25px 0;border-bottom:1px solid var(--line);gap:16px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px}.hex{width:45px;height:45px;border:1px solid #765521;background:#332719;color:var(--amber);display:grid;place-items:center;clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%);font-weight:900;font-size:24px}.brand-name{font-weight:850;font-size:20px;letter-spacing:-.5px}.brand-name b{color:var(--amber)}.subtitle{color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase}.status{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px}.pill{border:1px solid #536b54;border-radius:50px;padding:5px 11px;color:#a6e5b5;font-weight:700;font-size:10px;letter-spacing:.8px}.mode{border-color:#846137;color:#f1bc71}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;padding:40px 0 30px;flex-wrap:wrap}.eyebrow{text-transform:uppercase;letter-spacing:2px;color:var(--amber);font-size:11px;font-weight:750}.hero h1{font-size:clamp(30px,3.6vw,51px);letter-spacing:-1.7px;line-height:1.13;margin:10px 0 10px}.hero h1 span{color:var(--amber)}.hero p{max-width:650px;margin:0;color:var(--muted);font-size:14px}.file{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 16px;min-width:225px;max-width:100%;font-size:12px;color:var(--muted)}.file b{display:block;color:var(--text);font-weight:650;overflow-wrap:anywhere}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:0 0 16px}.card,.panel{border:1px solid var(--line);background:linear-gradient(135deg,#132132,#101a25);border-radius:15px;box-shadow:0 10px 25px #0000001a}.card{padding:23px}.card .label{color:var(--muted);font-size:12px;letter-spacing:.2px}.metric{font-size:34px;font-weight:800;line-height:1.3;letter-spacing:-1px;margin-top:13px}.metric-amber{color:var(--amber)}.metric-red{color:var(--red)}.metric-green{color:var(--green)}.card small{color:var(--muted);display:block;margin-top:4px;font-size:11px}.sections{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin:16px 0}.panel{padding:22px;min-width:0}.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.heading h2{font-size:15px;margin:0;font-weight:750}.minor{font-size:11px;color:var(--muted)}.label-bars{display:grid;gap:15px}.label-row{display:grid;grid-template-columns:minmax(140px,200px) 1fr 30px;gap:15px;align-items:center}.label-name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-track{height:7px;background:#243243;border-radius:10px;overflow:hidden}.bar-fill{background:linear-gradient(90deg,#af7539,#f8b855);height:100%;border-radius:10px}.label-value{text-align:right;font-weight:650;color:#d3e0e7}.distribution{display:flex;align-items:flex-end;gap:10px;height:172px;border-bottom:1px solid #405062;padding:0 12px 0;margin-top:23px}.bin{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;gap:7px}.column{width:100%;max-width:58px;min-height:2px;background:linear-gradient(0deg,#335d85,#69a1df);border-radius:5px 5px 0 0}.column.hi{background:linear-gradient(0deg,#7e343d,#fa7b7d)}.bin strong{font-size:12px}.bin-label{color:var(--muted);font-size:11px;margin-top:10px;text-align:center}.legend{margin-top:29px;font-size:12px;color:var(--muted)}
+.main-grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(285px,1fr);gap:16px;align-items:start}.controls{display:flex;gap:8px;margin:12px 0 18px;flex-wrap:wrap}input,select{background:#0b151f;border:1px solid #2c4052;border-radius:9px;color:var(--text);padding:10px 12px;outline:none}input:focus,select:focus{border-color:var(--amber)}input[type=search]{flex:1;min-width:150px}.check{display:flex;gap:7px;align-items:center;color:var(--muted);font-size:12px;padding:0 5px;cursor:pointer}.check input{accent-color:var(--amber)}.table-wrap{overflow:auto;max-height:650px}.tbl{width:100%;border-collapse:collapse;text-align:left}.tbl th{text-transform:uppercase;letter-spacing:1px;font-size:10px;color:var(--muted);font-weight:700;padding:13px 10px;border-bottom:1px solid var(--line);white-space:nowrap}.tbl td{padding:13px 10px;border-bottom:1px solid #253440;font-size:12px;white-space:nowrap}.tbl tbody tr{cursor:pointer}.tbl tbody tr:hover{background:#192a3a}.tbl tbody tr.active{background:#213748}.source{font-variant-numeric:tabular-nums;color:#d5e2e9;font-weight:600}.kind{display:inline-block;padding:4px 8px;border-radius:6px;background:#273446;color:#acc3d3;font-size:11px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}.risk{font-weight:800;font-variant-numeric:tabular-nums}.high{color:var(--red)}.mid{color:var(--amber)}.low{color:var(--green)}.anomaly{color:var(--amber);font-weight:750}.badge{color:var(--muted);background:#273646;border-radius:100px;font-size:10px;padding:4px 8px;letter-spacing:.3px}.details{position:sticky;top:14px}.empty{display:flex;min-height:250px;align-items:center;justify-content:center;text-align:center;color:var(--muted)}.detail-id{color:var(--amber);font-size:11px;letter-spacing:1px;text-transform:uppercase;word-break:break-all}.details h3{font-size:21px;margin:8px 0 4px;word-break:break-all}.detail-meta{font-size:12px;color:var(--muted);margin-bottom:20px}.chip-row{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 18px}.chip{border:1px solid #3a5365;background:#1b2d3c;color:#cfe1e9;border-radius:99px;padding:4px 9px;font-size:11px}.detail-title{border-top:1px solid var(--line);padding-top:18px;margin:16px 0 10px;font-size:12px;font-weight:750;color:#cbdbe5;text-transform:uppercase;letter-spacing:.8px}.evidence{font-size:12px;color:#aec5d1;display:grid;gap:8px}.evidence>div{border-left:2px solid var(--amber);padding-left:9px}.command{background:#09131d;color:#b7dfd9;border:1px solid #274253;border-radius:7px;padding:9px 10px;margin-top:7px;font:12px/1.4 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.feature-list{display:grid;grid-template-columns:1fr 1fr;gap:9px}.feature-list div{border:1px solid #283d4d;padding:9px;border-radius:8px}.feature-list small{color:var(--muted);font-size:10px}.feature-list strong{display:block;font-size:15px}.footer{border-top:1px solid var(--line);margin-top:30px;padding-top:20px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:11px}.fine{max-width:790px}.warn{padding:12px;border:1px solid #805a2f;background:#302514;border-radius:9px;color:#e5bd7c;font-size:12px;margin-bottom:18px}
+@media(max-width:1030px){.shell{padding-left:22px;padding-right:22px}.main-grid{grid-template-columns:1fr}.details{position:static}.sections{grid-template-columns:1fr 1fr}}@media(max-width:700px){.kpis{grid-template-columns:1fr 1fr}.sections{grid-template-columns:1fr}.card{padding:16px}.metric{font-size:28px}.panel{padding:16px}.label-row{grid-template-columns:minmax(100px,150px) 1fr 24px;gap:8px}.hero{padding:28px 0}.shell{padding-left:15px;padding-right:15px}}
+</style>
+</head>
+<body><div class="shell">
+<header><div class="brand"><div class="hex">H</div><div><div class="brand-name">HONEY<span>TRACE</span> <b>ML</b></div><div class="subtitle">Honeypot Intelligence Laboratory</div></div></div><div class="status"><span class="pill mode">__HONEYTRACE_MODE__</span><span class="pill"><span class="dot"></span>OFFLINE REPORT</span></div></header>
+<section class="hero"><div><div class="eyebrow">Security telemetry / Behavioral analytics</div><h1>Find the signal <span>in the noise.</span></h1><p>Examine attacker interactions, investigate observable behaviors, and rank unusual sessions with explainable machine learning.</p></div><div class="file"><span>ANALYZED INPUT</span><b id="inputName">—</b><span id="generatedAt">—</span></div></section>
+<div id="notice"></div>
+<section class="kpis">
+<div class="card"><div class="label">Sessions observed</div><div class="metric" id="sessionsCount">—</div><small>Cowrie sessions in selected file</small></div>
+<div class="card"><div class="label">Unique source IPs</div><div class="metric" id="sourcesCount">—</div><small>Addresses seen in logs</small></div>
+<div class="card"><div class="label">High-priority sessions</div><div class="metric metric-red" id="highCount">—</div><small>Heuristic risk score ≥ 70</small></div>
+<div class="card"><div class="label">ML outlier flags</div><div class="metric metric-amber" id="anomalyCount">—</div><small id="mlMeta">Relative anomaly detector</small></div>
+</section>
+<section class="sections"><div class="panel"><div class="heading"><h2>Behavior indicators</h2><span class="minor">Non-exclusive session labels</span></div><div class="label-bars" id="labelBars"></div></div><div class="panel"><div class="heading"><h2>Risk distribution</h2><span class="minor">Heuristic score · 0–100</span></div><div id="distribution" class="distribution"></div><div class="legend">Higher scores indicate stronger matches to predefined investigation rules, not the probability of a compromise.</div></div></section>
+<section class="main-grid"><div class="panel"><div class="heading"><h2>Session explorer</h2><span class="minor" id="matchCount"></span></div><div class="controls"><input id="search" type="search" placeholder="Search IP, session ID, command or label..." aria-label="Search sessions"><select id="labelFilter" aria-label="Filter by behavior"><option value="">All behaviors</option></select><label class="check"><input id="outliersOnly" type="checkbox"> ML outliers only</label></div><div class="table-wrap"><table class="tbl"><thead><tr><th>Source IP</th><th>Observed behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="sessionRows"></tbody></table></div></div><div class="panel details"><div class="heading"><h2>Session investigation</h2><span class="minor">Evidence-based analysis</span></div><div id="detailContent" class="empty">Select a session to inspect its observed evidence.</div></div></section>
+<footer class="footer"><div class="fine">HoneyTrace ML v0.1 · For defensive learning and authorized monitoring. Behavioral labels are heuristic; the model only ranks unusualness. It does not establish attacker identity, intent, compromise, or calibrated confidence.</div><div>Local-first · No external services · No tracker</div></footer>
+</div>
+<script id="payload" type="application/json">__HONEYTRACE_PAYLOAD__</script>
+<script>
+'use strict';
+const report=JSON.parse(document.getElementById('payload').textContent);
+const meta=report.meta;const all=report.sessions;
+const $=id=>document.getElementById(id);
+const el=(tag,cls,txt)=>{const x=document.createElement(tag);if(cls)x.className=cls;if(txt!==undefined)x.textContent=String(txt);return x;};
+const format=n=>Number(n).toLocaleString('en-US');
+const riskClass=n=>n>=70?'high':n>=35?'mid':'low';
+const riskLevel=n=>n>=70?'HIGH':n>=35?'ELEVATED':'LOW';
+$('inputName').textContent=meta.input_name||'Cowrie JSONL';
+$('generatedAt').textContent='Generated '+new Date(meta.generated_at).toLocaleString();
+$('sessionsCount').textContent=format(meta.sessions);
+$('sourcesCount').textContent=format(meta.unique_sources);
+$('highCount').textContent=format(all.filter(x=>x.risk>=70).length);
+$('anomalyCount').textContent=meta.ml_enabled?format(all.filter(x=>x.anomaly).length):'N/A';
+$('mlMeta').textContent=meta.ml_enabled?'Isolation Forest · relative ranking':'Requires at least 25 sessions';
+if(meta.demo){const n=el('div','warn','Synthetic lab dataset: every IP address, interaction and alert is fabricated for testing. Do not interpret these as real attackers.');$('notice').appendChild(n);}
+if(meta.parse_stats&&(meta.parse_stats.invalid||meta.parse_stats.skipped||meta.parse_stats.truncated)){$('notice').appendChild(el('div','warn',`Input parsing notices: ${meta.parse_stats.invalid} invalid lines, ${meta.parse_stats.skipped} ignored lines${meta.parse_stats.truncated?', input limit reached':''}.`));}
+const max=Math.max(1,...Object.values(report.labels));const bars=$('labelBars');
+for(const [label,count] of Object.entries(report.labels)){
+ const row=el('div','label-row');const name=el('div','label-name',label);name.title=label;
+ const track=el('div','bar-track');const fill=el('div','bar-fill');fill.style.width=(100*count/max)+'%';track.appendChild(fill);
+ row.append(name,track,el('div','label-value',format(count)));bars.appendChild(row);
+ const option=el('option','',label);option.value=label;$('labelFilter').appendChild(option);
+}
+if(!Object.keys(report.labels).length)bars.appendChild(el('div','minor','No accepted Cowrie sessions to chart.'));
+const buckets=[0,0,0,0,0];for(const row of all)buckets[Math.min(4,Math.floor(row.risk/20))]++;
+const largest=Math.max(1,...buckets);
+buckets.forEach((count,i)=>{const x=el('div','bin');x.appendChild(el('strong','',count));const c=el('div','column'+(i>=3?' hi':''));c.style.height=Math.max(2,Math.round(125*count/largest))+'px';x.append(c,el('div','bin-label',`${i*20}–${i===4?'100':i*20+19}`));$('distribution').appendChild(x);});
+let active=null;
+function detail(row){
+ active=row.sensor+'/'+row.session;const root=$('detailContent');root.replaceChildren();root.className='';
+ root.appendChild(el('div','detail-id','SESSION '+row.session));root.appendChild(el('h3','',row.src_ip||'Unknown IP'));
+ root.appendChild(el('div','detail-meta',`${row.start} · ${row.sensor} · ${row.protocol}`));
+ root.appendChild(el('div','risk '+riskClass(row.risk),`HEURISTIC RISK ${row.risk}/100 — ${riskLevel(row.risk)}`));
+ const line=el('div','chip-row');for(const label of row.labels)line.appendChild(el('span','chip',label));root.appendChild(line);
+ root.appendChild(el('div','detail-title','Observed evidence'));const ev=el('div','evidence');for(const item of row.evidence)ev.appendChild(el('div','',item));root.appendChild(ev);
+ root.appendChild(el('div','detail-title','ML anomaly ranking'));const info=el('div','evidence');info.appendChild(el('div','',row.anomaly===null?'Not evaluated (insufficient sessions or ML disabled)':`${row.anomaly?'FLAGGED as unusual':'Not flagged'} · Unusualness rank ${row.anomaly_percentile}/100 (relative, not confidence)`));root.appendChild(info);
+ root.appendChild(el('div','detail-title','Selected behavioral features'));const feats=el('div','feature-list');
+ const pairs=[['Failed logins',row.features.login_failures],['Successful logins',row.features.login_successes],['Commands',row.features.command_count],['Transfers',row.features.file_transfers],['Recon commands',row.features.recon_commands],['Duration (s)',row.features.duration_seconds]];
+ pairs.forEach(([name,value])=>{const cell=el('div');cell.append(el('small','',name),el('strong','',value));feats.appendChild(cell);});root.appendChild(feats);
+ root.appendChild(el('div','detail-title','Captured command excerpts'));
+ if(row.commands.length){row.commands.forEach(command=>root.appendChild(el('div','command','$ '+command)));}else{root.appendChild(el('div','minor','No shell command input captured.'));}
+}
+function render(){
+ const needle=$('search').value.trim().toLowerCase();const label=$('labelFilter').value;const only=$('outliersOnly').checked;
+ const matches=all.filter(row=>(!label||row.labels.includes(label))&&(!only||row.anomaly===true)&&(!needle||[row.src_ip,row.session,row.sensor,...row.labels,...row.commands].join(' ').toLowerCase().includes(needle)));
+ $('matchCount').textContent=`${format(matches.length)} of ${format(all.length)} sessions`;
+ const body=$('sessionRows');body.replaceChildren();for(const row of matches.slice(0,300)){
+  const tr=el('tr',active===row.sensor+'/'+row.session?'active':'');tr.tabIndex=0;tr.setAttribute('role','button');tr.setAttribute('aria-label','Inspect session '+row.session);
+  const c1=el('td','source',row.src_ip||'Unknown');const c2=el('td');const badge=el('span','kind',row.labels[0]);badge.title=row.labels.join(', ');c2.appendChild(badge);
+  const c3=el('td','risk '+riskClass(row.risk),`${row.risk} · ${riskLevel(row.risk)}`);
+  const c4=el('td',row.anomaly?'anomaly':'minor',row.anomaly===null?'—':row.anomaly?'● Flagged':'—');
+  const c5=el('td','minor',row.start==='Unknown'?'Unknown':row.start.replace('T',' ').slice(0,16));tr.append(c1,c2,c3,c4,c5);
+  tr.addEventListener('click',()=>{detail(row);render();});tr.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();detail(row);render();}});
+  body.appendChild(tr);
+ }
+ if(!matches.length){const tr=el('tr');const td=el('td','minor','No matching sessions.');td.colSpan=5;tr.appendChild(td);body.appendChild(tr);}
+ if(matches.length>300){const tr=el('tr');const td=el('td','minor','Showing first 300 matching sessions; narrow search to view more.');td.colSpan=5;tr.appendChild(td);body.appendChild(tr);}
+}
+['search','labelFilter','outliersOnly'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));
+if(all.length){detail(all[0]);}render();
+</script>
+</body></html>
