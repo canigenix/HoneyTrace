@@ -1,0 +1,23 @@
+HoneyTrace v0.3.1 - Docker CLI discovery fix
+
+This patch preserves your current HoneyTrace analyzer, the existing Git repository,
+and all saved logs. It modifies only:
+  honeytrace/live.py
+  tests/test_live.py
+
+Install on Windows:
+1. Stop the currently running 'py honeytrace.py live' server with Ctrl+C.
+2. Extract this ZIP inside your EXISTING HoneyTrace project root, the folder
+   containing honeytrace.py. Allow overwrite for the two listed files.
+3. In a new Windows PowerShell terminal in that folder:
+      py honeytrace.py live
+4. Open http://127.0.0.1:8765 and check the status.
+
+This patch specifically finds Docker Desktop's per-user installation at:
+%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin\docker.exe
+when it isn't on PATH. If another Python live server is still bound to port 8765,
+stop that server first; otherwise the new code cannot bind that port.
+
+Optional verification from a separate Windows CMD terminal:
+      curl.exe http://127.0.0.1:8765/api/state
+Look for nonzero sessions and "error": null.

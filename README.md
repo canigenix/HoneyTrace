@@ -80,3 +80,43 @@ You can check the path with `docker exec honeytrace-cowrie pwd` or `docker exec 
 3. Add incremental ingestion, alerting and behavioral clustering without ever exposing the dashboard publicly by default.
 
 Not affiliated with Cowrie or StingBox. Cowrie documentation: https://docs.cowrie.org/ .
+
+## Live monitoring (v0.3)
+
+**No manually copying logs or refreshing the browser.** This mode uses the existing
+Cowrie Docker container, analyzes changed JSON logs, and serves a read-only local
+HTTP dashboard that refreshes every 3 seconds.
+
+From **Windows PowerShell in the HoneyTrace project directory**, with Docker Desktop
+running and `honeytrace-cowrie` started:
+
+```powershell
+py honeytrace.py live
+```
+
+Open **http://127.0.0.1:8765** in your browser. In another terminal, test your
+localhost honeypot with `ssh -p 2222 root@127.0.0.1`. Return to the dashboard
+to view new commands, behavioral labels, and alerts. Stop with **Ctrl+C**.
+
+By default, HoneyTrace copies Cowrie's log **every 5 seconds**, then analyzes it
+*only when changed*. Use `--interval 10` to poll every 10 seconds. The app binds
+**only to 127.0.0.1**, does not open any public ports, and does not execute or
+fetch captured command content. Browser alerts appear as in-dashboard indicators;
+no email, push, or system notifications are sent.
+
+To monitor an existing local JSONL file instead of Docker:
+
+```powershell
+py honeytrace.py live --source file --input data/cowrie.json
+```
+
+The live mode imposes a **20 MB log limit** as a safeguard. Rotate or archive
+larger Cowrie logs before running it. Each refresh reanalyzes the full log;
+large-scale ingestion and supervised attack-type ML remain future work.
+
+The dashboard is **not authenticated** because it only listens on localhost;
+other processes or users on the same computer may be able to access it. Never
+port-forward or reverse-proxy the live dashboard. Honeypot logs can contain
+credentials and identifying information, so do not commit `data/` or `output/`
+files to GitHub. The browser shows selected command excerpts but does not show
+captured login passwords. ML remains inactive until 25 sessions are available.

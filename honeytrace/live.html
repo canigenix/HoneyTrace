@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>HoneyTrace | Live Security Monitoring</title>
+<style>
+:root{--bg:#091118;--panel:#121f2b;--border:#273b4a;--muted:#93aabd;--text:#eaf2f7;--accent:#f4b860;--green:#69d9b4;--red:#ff7f86}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse 900px 320px at 70% 0,#153746 0,transparent 85%),var(--bg);color:var(--text);font:14px/1.5 ui-sans-serif,system-ui,Arial,sans-serif}
+.shell{max-width:1370px;margin:auto;padding:26px 30px 50px}header{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:23px}
+h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font-size:16px;margin:0 0 15px}h3{font-size:13px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin:22px 0 10px}
+.tag{color:#c1d9e5;font-size:11px;letter-spacing:1.3px;text-transform:uppercase}.dot{display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:100%;margin-right:8px}.status{font-size:12px;color:var(--muted);padding:9px 12px;border:1px solid var(--border);border-radius:10px}
+.sub{margin:12px 0 26px;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}.stat,.panel{background:linear-gradient(130deg,#142636,#101c28);border:1px solid var(--border);border-radius:15px}.stat{padding:22px}.stat .name{font-size:12px;color:var(--muted)}.value{font-size:35px;font-weight:800;margin-top:8px;line-height:1.2}.panel{padding:22px;min-width:0}.cols{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,1fr);gap:16px}.alert-row{border:1px solid #483e37;background:#221e1d;padding:10px 13px;border-radius:9px;margin-bottom:8px;font-size:12px;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}.alert-row strong{color:var(--accent)}.alerts{margin-bottom:18px}.hint{font-size:12px;color:var(--muted)}.warn{color:#ffd293;background:#3c2d1e;padding:10px 14px;border-radius:8px;margin-bottom:15px;white-space:pre-wrap;overflow-wrap:anywhere}
+.controls{display:flex;gap:9px;margin:14px 0}.controls input,.controls select{background:#0b1821;color:var(--text);border:1px solid #304654;border-radius:8px;padding:9px 11px;font:inherit}.controls input{flex:1;min-width:120px}.controls select{max-width:205px}.table-scroll{overflow:auto;max-height:640px}table{width:100%;border-collapse:collapse;text-align:left}th{text-transform:uppercase;letter-spacing:1px;font-size:10px;color:var(--muted)}th,td{padding:12px 8px;border-bottom:1px solid #263b48}td{font-size:12px;white-space:nowrap}tr[data-session]{cursor:pointer}tr[data-session]:hover,tr.selected{background:#213948}.severity{font-weight:bold}.high{color:var(--red)}.medium{color:var(--accent)}.low{color:var(--green)}
+.pill{display:inline-block;padding:4px 8px;font-size:11px;border:1px solid #3e5562;border-radius:99px;margin:4px 5px 4px 0;overflow-wrap:anywhere}.detail-head{font-size:18px;font-weight:750;overflow-wrap:anywhere;margin-bottom:6px}.meta{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.evidence{border-left:3px solid var(--accent);padding:5px 9px;margin:8px 0;font-size:12px}.command{background:#09141b;border:1px solid #27414e;border-radius:8px;color:#b2e5da;white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;margin:7px 0;font:12px/1.4 ui-monospace,Consolas,monospace}.empty{color:var(--muted);padding:18px 0}.footer{margin-top:23px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);padding-top:15px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}@media(max-width:550px){.shell{padding:16px}.stat,.panel{padding:15px}.value{font-size:28px}.controls{flex-wrap:wrap}}
+</style>
+</head>
+<body><div class="shell">
+<header><div><div class="tag">Localhost-only intelligence lab</div><h1>HONEYTRACE <b>LIVE</b></h1></div><div class="status"><span id="statusDot" class="dot"></span><span id="status">Connecting to local monitor…</span></div></header>
+<p class="sub">Automatic Cowrie log ingestion · explainable behavior indicators · Isolation Forest anomaly ranking · no cloud services</p>
+<div id="error"></div>
+<div class="stats">
+<div class="stat"><div class="name">Observed sessions</div><div id="sessionCount" class="value">—</div></div>
+<div class="stat"><div class="name">Unique source IPs</div><div id="sourcesCount" class="value">—</div></div>
+<div class="stat"><div class="name">Behavior alerts</div><div id="alertsCount" class="value">—</div></div>
+<div class="stat"><div class="name">ML outlier flags</div><div id="mlCount" class="value">—</div></div>
+</div>
+<div class="panel alerts"><h2>Recent behavior indicators <span class="hint" id="alertHint"></span></h2><div id="alerts"></div></div>
+<div class="cols">
+<section class="panel"><h2>Session explorer <span class="hint" id="sessionHint"></span></h2>
+<div class="controls"><input id="search" type="search" placeholder="Search commands, IP, or behavior" aria-label="Search sessions"><select id="filter"><option value="">All behaviors</option></select></div>
+<div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section class="panel"><h2>Session investigation</h2><div id="details" class="empty">Select a session to inspect commands and evidence.</div></section>
+</div>
+<div class="footer">HoneyTrace v0.3 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
+</div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const node = (tag, text, cls='') => { const e=document.createElement(tag); e.textContent=String(text); if(cls)e.className=cls; return e; };
+let current=null, chosen=null, lastRevision=-1, busy=false;
+const nice = value => value===undefined || value===null ? '—' : String(value);
+function status(msg, ok){$('status').textContent=msg;$('statusDot').style.background=ok?'#69d9b4':'#f4b860';}
+function put(id, text){$(id).textContent=nice(text);}
+function detail(row){
+ const box=$('details');box.className='';box.replaceChildren();
+ if(!row){box.className='empty';box.textContent='No matching session selected.';return;}
+ box.append(node('div',row.src_ip||'Unknown source','detail-head'),node('div',`${row.session} · ${row.start}`,'meta'));
+ const lab=node('div','');(row.labels||[]).forEach(t=>lab.append(node('span',t,'pill')));box.append(lab);
+ box.append(node('h3','Evidence'));
+ (row.evidence||[]).forEach(t=>box.append(node('div',t,'evidence')));
+ box.append(node('h3',`ML anomaly: ${row.anomaly===null?'not evaluated':row.anomaly?'flagged':'not flagged'}`));
+ box.append(node('div',row.anomaly===null?'Requires 25 or more sessions (or ML enabled).':`Relative unusualness percentile: ${row.anomaly_percentile} / 100. Not probability or confidence.`,'meta'));
+ box.append(node('h3','Captured command excerpts'));
+ if(!row.commands?.length)box.append(node('div','No shell commands captured.','empty'));
+ else row.commands.forEach(cmd=>box.append(node('div','$ '+cmd,'command')));
+}
+function render(){
+ if(!current)return;
+ const {report,alerts,monitor}=current;const all=report.sessions||[];
+ put('sessionCount',report.meta.sessions);put('sourcesCount',report.meta.unique_sources);put('alertsCount',alerts.length);put('mlCount',report.meta.ml_enabled?all.filter(s=>s.anomaly).length:'N/A');
+ put('alertHint',`· showing ${alerts.length} most recent indicators`);
+ const error=$('error');error.replaceChildren();if(monitor.error){error.append(node('div',`Monitor warning: ${monitor.error}`,'warn'));status('Source unavailable; showing last analysis',false);}else status(`Monitoring ${monitor.source} · checked ${monitor.last_checked?new Date(monitor.last_checked).toLocaleTimeString(): 'soon'}`,true);
+ const ab=$('alerts');ab.replaceChildren();if(!alerts.length)ab.append(node('div','No defined behavior indicators yet.','empty'));
+ for(const a of alerts.slice(0,8)){
+  const item=node('div','','alert-row');item.append(node('strong',a.label));item.append(node('span',`${a.source||'Unknown IP'} · ${a.start}`,'hint'));ab.append(item);
+ }
+ const prev=$('filter').value;const names=[...new Set(all.flatMap(s=>s.labels||[]))].sort();$('filter').replaceChildren();
+ const opts=[['','All behaviors'],...names.map(n=>[n,n])];for(const [value,label] of opts){const o=node('option',label);o.value=value;$('filter').append(o);}if(names.includes(prev))$('filter').value=prev;
+ const query=$('search').value.trim().toLowerCase();const category=$('filter').value;
+ const matched=all.filter(s=>(!category||s.labels.includes(category))&&(!query||[s.src_ip,s.session,...s.labels,...s.commands].join(' ').toLowerCase().includes(query)));
+ put('sessionHint',`${matched.length} matching`);
+ const rows=$('rows');rows.replaceChildren();for(const s of matched.slice(0,250)){
+  const key=s.sensor+'/'+s.session;const tr=document.createElement('tr');tr.dataset.session=key;tr.tabIndex=0;if(key===chosen)tr.className='selected';
+  tr.append(node('td',s.src_ip||'?'),node('td',s.labels.join(', ')),node('td',s.risk+'/100',s.risk>=70?'severity high':s.risk>=35?'severity medium':'severity low'),node('td',s.anomaly===null?'—':s.anomaly?'FLAGGED':'—'),node('td',s.start==='Unknown'?'—':s.start.slice(0,19).replace('T',' ')));
+  const select=()=>{chosen=key;detail(s);render();};tr.addEventListener('click',select);tr.addEventListener('keydown',e=>{if(e.key==='Enter'){select();}});rows.append(tr);
+ }
+ if(!matched.length){const tr=node('tr','');const td=node('td','No matching sessions','empty');td.colSpan=5;tr.append(td);rows.append(tr);}
+ const selected=all.find(s=>s.sensor+'/'+s.session===chosen)||all[0]||null;
+ if(selected){chosen=selected.sensor+'/'+selected.session;detail(selected);}else detail(null);
+}
+async function refresh(){
+ if(busy)return;busy=true;
+ try{
+  const response=await fetch('/api/state',{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
+  const data=await response.json();const updated=data.revision!==lastRevision;current=data;
+  if(updated){lastRevision=data.revision;render();}else{
+   const m=data.monitor;const e=$('error');e.replaceChildren();if(m.error){e.append(node('div',`Monitor warning: ${m.error}`,'warn'));status('Source unavailable; showing last analysis',false)}else status(`Monitoring ${m.source} · checked ${m.last_checked?new Date(m.last_checked).toLocaleTimeString():'soon'}`,true);
+  }
+ }catch(e){status('Unable to reach local monitor: '+e.message,false)}finally{busy=false;}
+}
+$('search').addEventListener('input',render);$('filter').addEventListener('change',render);
+refresh();setInterval(refresh,3000);
+</script>
+</body></html>

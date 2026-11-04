@@ -7,6 +7,7 @@ from pathlib import Path
 from honeytrace.analyzer import analyze_events, load_events
 from honeytrace.demo import create_demo
 from honeytrace.report import write_report
+from honeytrace.live import Monitor, serve_dashboard
 
 
 def main() -> None:
@@ -17,7 +18,28 @@ def main() -> None:
     analyze = sub.add_parser("analyze", help="Analyze a Cowrie JSONL log file")
     analyze.add_argument("input", type=Path)
     analyze.add_argument("--no-ml", action="store_true", help="Disable Isolation Forest")
+    live = sub.add_parser("live", help="Serve an automatically updating local Cowrie dashboard")
+    live.add_argument("--source", choices=("docker", "file"), default="docker")
+    live.add_argument("--input", type=Path, default=Path("data/cowrie.json"))
+    live.add_argument("--container", default="honeytrace-cowrie")
+    live.add_argument("--container-path", default="/cowrie/cowrie-git/var/log/cowrie/cowrie.json")
+    live.add_argument("--port", type=int, default=8765)
+    live.add_argument("--interval", type=int, default=5, help="Polling interval (2-60 seconds)")
+    live.add_argument("--no-ml", action="store_true")
     args = parser.parse_args()
+    if args.command == "live":
+        if not 2 <= args.interval <= 60:
+            parser.error("--interval must be between 2 and 60 seconds")
+        if not 1024 <= args.port <= 65535:
+            parser.error("--port must be between 1024 and 65535")
+        monitor = Monitor(input_path=args.input, source=args.source, container=args.container,
+                          container_path=args.container_path, interval=args.interval,
+                          enable_ml=not args.no_ml)
+        try:
+            serve_dashboard(monitor, port=args.port)
+        except OSError as error:
+            parser.error(str(error))
+        return
     output = Path("output")
     output.mkdir(exist_ok=True)
     if args.command == "demo":
