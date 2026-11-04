@@ -1,0 +1,15 @@
+HoneyTrace v0.4 — upgrade to your existing working repository
+
+1. Stop your current live server (Ctrl+C). Keep Docker Desktop and Cowrie running.
+2. Extract this UPDATE ZIP into the folder with honeytrace.py, preserving .git, data and output.
+3. In VS Code PowerShell (or Windows CMD) in that project folder run:
+     py -m unittest discover -s tests -v
+     py honeytrace.py live
+4. Open http://127.0.0.1:8765 and inspect Session investigation -> Session timeline.
+5. To publish:
+     git add README.md honeytrace/analyzer.py honeytrace/intelligence.py honeytrace/live.html honeytrace/template.html tests/test_intelligence.py
+     git commit -m "Add session timelines and behavioral fingerprinting"
+     git push
+
+Do not create another git repository or upload real Cowrie logs.
+The existing LICENSE file on GitHub is already Apache 2.0; this update does not replace it.

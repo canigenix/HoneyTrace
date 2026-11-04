@@ -1,2 +1,2 @@
-"""HoneyTrace ML: offline analysis of Cowrie JSON events."""
-__version__ = "0.1.0"
+"""HoneyTrace: local-first Cowrie honeypot intelligence."""
+__version__ = "0.4.0"

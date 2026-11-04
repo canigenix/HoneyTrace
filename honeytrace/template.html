@@ -27,7 +27,7 @@
 </section>
 <section class="sections"><div class="panel"><div class="heading"><h2>Behavior indicators</h2><span class="minor">Non-exclusive session labels</span></div><div class="label-bars" id="labelBars"></div></div><div class="panel"><div class="heading"><h2>Risk distribution</h2><span class="minor">Heuristic score · 0–100</span></div><div id="distribution" class="distribution"></div><div class="legend">Higher scores indicate stronger matches to predefined investigation rules, not the probability of a compromise.</div></div></section>
 <section class="main-grid"><div class="panel"><div class="heading"><h2>Session explorer</h2><span class="minor" id="matchCount"></span></div><div class="controls"><input id="search" type="search" placeholder="Search IP, session ID, command or label..." aria-label="Search sessions"><select id="labelFilter" aria-label="Filter by behavior"><option value="">All behaviors</option></select><label class="check"><input id="outliersOnly" type="checkbox"> ML outliers only</label></div><div class="table-wrap"><table class="tbl"><thead><tr><th>Source IP</th><th>Observed behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="sessionRows"></tbody></table></div></div><div class="panel details"><div class="heading"><h2>Session investigation</h2><span class="minor">Evidence-based analysis</span></div><div id="detailContent" class="empty">Select a session to inspect its observed evidence.</div></div></section>
-<footer class="footer"><div class="fine">HoneyTrace ML v0.1 · For defensive learning and authorized monitoring. Behavioral labels are heuristic; the model only ranks unusualness. It does not establish attacker identity, intent, compromise, or calibrated confidence.</div><div>Local-first · No external services · No tracker</div></footer>
+<footer class="footer"><div class="fine">HoneyTrace ML v0.4 · For defensive learning and authorized monitoring. Behavioral labels are heuristic; the model only ranks unusualness. It does not establish attacker identity, intent, compromise, or calibrated confidence.</div><div>Local-first · No external services · No tracker</div></footer>
 </div>
 <script id="payload" type="application/json">__HONEYTRACE_PAYLOAD__</script>
 <script>
@@ -71,6 +71,10 @@ function detail(row){
  root.appendChild(el('div','detail-title','Selected behavioral features'));const feats=el('div','feature-list');
  const pairs=[['Failed logins',row.features.login_failures],['Successful logins',row.features.login_successes],['Commands',row.features.command_count],['Transfers',row.features.file_transfers],['Recon commands',row.features.recon_commands],['Duration (s)',row.features.duration_seconds]];
  pairs.forEach(([name,value])=>{const cell=el('div');cell.append(el('small','',name),el('strong','',value));feats.appendChild(cell);});root.appendChild(feats);
+ root.appendChild(el('div','detail-title','Behavioral fingerprint'));
+ root.appendChild(el('div','evidence',`${row.fingerprint || 'N/A'} · ${row.similar_sessions || 0} other matching sessions (not attacker attribution)`));
+ root.appendChild(el('div','detail-title','Session timeline'));
+ if(row.timeline?.length){for(const item of row.timeline){const event=el('div','command',(item.time?item.time+' · ':'')+item.label+(item.command!==undefined?' · $ '+item.command:''));root.appendChild(event);}}else root.appendChild(el('div','minor','No supported events captured.'));
  root.appendChild(el('div','detail-title','Captured command excerpts'));
  if(row.commands.length){row.commands.forEach(command=>root.appendChild(el('div','command','$ '+command)));}else{root.appendChild(el('div','minor','No shell command input captured.'));}
 }

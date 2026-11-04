@@ -1,8 +1,8 @@
-# HoneyTrace ML — Honeypot Intelligence (v0.1)
+# HoneyTrace — Honeypot Intelligence (v0.4)
 
 A local-first, CPU-friendly tool for analyzing Cowrie SSH/Telnet honeypot JSON logs. It combines **transparent behavioral indicators** and **Isolation Forest anomaly detection** with a standalone, offline HTML dashboard. No cloud service, GPU, external API, or public port is required.
 
-> **Important:** v0.1's behavior *labels* are rule based. Machine learning detects *relative anomalies*, not proven malicious intent or attacker identity. Heuristic risk scores are not probabilities. Synthetic demo outcomes do not establish production accuracy.
+> **Important:** Behavior *labels* are rule based. Machine learning detects *relative anomalies*, not proven malicious intent or attacker identity. Heuristic risk scores are not probabilities. Synthetic demo outcomes do not establish production accuracy.
 
 ## Start in 3 steps (Windows PowerShell)
 
@@ -49,7 +49,7 @@ docker cp honeytrace-cowrie:/cowrie/cowrie-git/var/log/cowrie/cowrie.json data/c
 .\.venv\Scripts\python.exe honeytrace.py analyze data/cowrie.json
 ```
 
-You can check the path with `docker exec honeytrace-cowrie pwd` or `docker exec honeytrace-cowrie find /cowrie -name cowrie.json` if needed. To stop: `docker stop honeytrace-cowrie`; to delete container: `docker rm honeytrace-cowrie`.
+You can check the path with `docker exec honeytrace-cowrie pwd` or `docker logs honeytrace-cowrie` (the minimal image may not include `find`) if needed. To stop: `docker stop honeytrace-cowrie`; to delete container: `docker rm honeytrace-cowrie`.
 
 **Security:** Local-only binding is not a complete security boundary. Use a dedicated VM or host, isolated from your home LAN; do not expose to the public internet or forward ports until properly isolated and hardened. Do not execute anything captured by a honeypot. File-download events are analyzed from metadata only—HoneyTrace does not fetch or run files.
 
@@ -62,7 +62,7 @@ You can check the path with `docker exec honeytrace-cowrie pwd` or `docker exec 
 
 ## Safety and privacy
 
-- Analysis is batch/offline; no service, background agent, or listener is started.
+- Offline analysis starts no listener. Optional live mode serves an HTTP dashboard bound to 127.0.0.1 only.
 - Untrusted JSON log entries are parsed, never executed. The HTML viewer renders attacker-controlled fields as text, not executable HTML.
 - Synthetic demo addresses are drawn exclusively from IANA TEST-NET ranges and demo URLs from the reserved `.invalid` domain.
 - Inputs are limited to 250,000 accepted events and 128 KB per line as basic safeguards. Large data should eventually use a streaming database pipeline.
@@ -120,3 +120,38 @@ port-forward or reverse-proxy the live dashboard. Honeypot logs can contain
 credentials and identifying information, so do not commit `data/` or `output/`
 files to GitHub. The browser shows selected command excerpts but does not show
 captured login passwords. ML remains inactive until 25 sessions are available.
+
+## Attacker intelligence (v0.4)
+
+Both `analyze` and `live` now generate **session timelines** (connection, login
+results, shell commands, transfers, disconnects) and **deterministic behavioral
+fingerprints** based on command names, behavioral labels, and coarse login
+patterns. The live dashboard displays recurring patterns and lets you filter
+sessions by fingerprint. The offline report includes timelines and fingerprints.
+
+Fingerprints intentionally exclude source IPs, usernames, passwords, command
+arguments, and timestamps. **They are not attacker IDs, evidence of coordination,
+ML predictions, or proof of compromise.** Similar sessions may belong to
+unrelated people or test scripts. They are meant to help a human investigator.
+Timelines show command input and should be handled as potentially sensitive.
+A per-session timeline is capped at 80 displayed events, and only the top 20
+recurring fingerprint groups are summarized. No external network ports are
+opened, and no captured commands are executed.
+
+### Local upgrade from v0.3
+
+Stop the running HoneyTrace live server with **Ctrl+C**. Copy the v0.4 update
+files into the same project folder as `honeytrace.py`, allowing existing files
+to be overwritten but **preserving `.git/`, `data/`, and `output/`**.
+
+From a Windows PowerShell or CMD terminal inside that folder:
+
+```powershell
+py -m unittest discover -s tests -v
+py honeytrace.py live
+```
+
+Open http://127.0.0.1:8765. You can test fingerprint grouping with two
+similar localhost SSH sessions using `whoami`, `uname -a`, and `hostname`.
+The existing Cowrie container name (`honeytrace-cowrie`) and Docker settings
+are unchanged. Do not port-forward the honeypot or the dashboard.

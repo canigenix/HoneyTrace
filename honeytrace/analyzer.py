@@ -17,6 +17,8 @@ import re
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
+from honeytrace.intelligence import annotate_patterns, build_timeline
+
 
 MAX_EVENTS = 250_000
 MAX_LINE_BYTES = 128_000
@@ -164,6 +166,7 @@ def _session_row(key: tuple[str, str], events: list[dict]) -> dict:
         "start": start.isoformat() if start else "Unknown",
         "labels": labels, "evidence": evidence,
         "commands": commands[:50],
+        "timeline": build_timeline(events),
         "features": feature,
         "risk": int(risk), "anomaly": None, "anomaly_percentile": None,
     }
@@ -195,6 +198,7 @@ def analyze_events(events: list[dict], *, enable_ml: bool = True) -> dict:
             if row["anomaly"]:
                 row["risk"] = min(100, row["risk"] + 15)
                 row["evidence"].append("Isolation Forest flagged this session as unusual relative to the loaded dataset")
+    patterns = annotate_patterns(sessions)
     sessions.sort(key=lambda row: (row["risk"], row["start"]), reverse=True)
     by_label = defaultdict(int)
     for row in sessions:
@@ -210,5 +214,6 @@ def analyze_events(events: list[dict], *, enable_ml: bool = True) -> dict:
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
         "labels": dict(sorted(by_label.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "patterns": patterns,
         "sessions": sessions,
     }
