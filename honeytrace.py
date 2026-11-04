@@ -8,6 +8,7 @@ from honeytrace.analyzer import analyze_events, load_events
 from honeytrace.demo import create_demo
 from honeytrace.report import write_report
 from honeytrace.live import Monitor, serve_dashboard
+from honeytrace.ml_intelligence import export_label_template, evaluate_session_labels
 
 
 def main() -> None:
@@ -26,7 +27,30 @@ def main() -> None:
     live.add_argument("--port", type=int, default=8765)
     live.add_argument("--interval", type=int, default=5, help="Polling interval (2-60 seconds)")
     live.add_argument("--no-ml", action="store_true")
+    labels = sub.add_parser("labels", help="Export a blank per-session CSV for manual review labels")
+    labels.add_argument("input", type=Path, help="Cowrie JSONL file")
+    labels.add_argument("--output", type=Path, default=Path("data/session_labels.csv"))
+    evaluate = sub.add_parser("evaluate", help="Compare batch anomaly flags against manually reviewed sessions")
+    evaluate.add_argument("input", type=Path, help="Cowrie JSONL file")
+    evaluate.add_argument("labels", type=Path, help="CSV with sensor,session,label (review or background)")
+    evaluate.add_argument("--output", type=Path, default=Path("output/evaluation.json"))
     args = parser.parse_args()
+    if args.command in ("labels", "evaluate"):
+        try:
+            events, stats = load_events(args.input)
+            result = analyze_events(events, enable_ml=args.command == "evaluate")
+            if args.command == "labels":
+                count = export_label_template(result, args.output)
+                print(f"Wrote {count} unlabeled sessions to {args.output}. Fill label=review or background after manual inspection.")
+            else:
+                evaluation = evaluate_session_labels(result, args.labels)
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_text(json.dumps(evaluation, indent=2), encoding="utf-8")
+                print(f"Labeled: {evaluation['labeled']} | Precision: {evaluation['precision']} | Recall: {evaluation['recall']} | F1: {evaluation['f1']}")
+                print(f"Diagnostic only (not held-out validation). Full result: {args.output}")
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        return
     if args.command == "live":
         if not 2 <= args.interval <= 60:
             parser.error("--interval must be between 2 and 60 seconds")

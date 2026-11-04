@@ -155,3 +155,55 @@ Open http://127.0.0.1:8765. You can test fingerprint grouping with two
 similar localhost SSH sessions using `whoami`, `uname -a`, and `hostname`.
 The existing Cowrie container name (`honeytrace-cowrie`) and Docker settings
 are unchanged. Do not port-forward the honeypot or the dashboard.
+
+
+## ML Intelligence (v0.5)
+
+**Live dashboard:** `py honeytrace.py live` now shows *ML behavioral clusters* and
+*anomaly feature contrasts* alongside the v0.4 deterministic fingerprints and
+timelines. The live server still binds only to `127.0.0.1` and uses the existing
+Cowrie Docker container. No additional third-party dependencies are needed.
+
+- **DBSCAN clusters** compare fixed, log-scaled command, authentication, transfer,
+  and session-duration features. They can group *similar but not identical*
+  sessions. A session can remain unclustered (noise). IDs such as `C001` are
+  only meaningful within one analyzed batch; they are not stable attacker IDs.
+  Cluster membership is exploratory, not an independent identity or threat
+  assessment. Clustering operates on batches of 2–2000 sessions to limit
+  DBSCAN resource use; at least two similar sessions are needed.
+- **Isolation Forest feature contrasts** are displayed only for flagged sessions,
+  after at least **25 sessions** are present. Contrasts highlight differences
+  against the loaded batch's feature medians. They are **not** true Isolation
+  Forest feature-attribution explanations or calibrated probabilities.
+- **Manual label evaluation** helps develop a disciplined research workflow.
+  A CSV labels sessions as `review` (analyst wants to investigate) or
+  `background` (expected test/background interaction); an empty label is ignored.
+  These labels do not prove real-world maliciousness.
+
+### Optional: evaluate with manually labeled sessions
+
+When you have 25 or more diverse sessions, use a **local** Cowrie JSONL file:
+
+```powershell
+py honeytrace.py labels data/cowrie.json --output data/session_labels.csv
+```
+
+Inspect each session in the dashboard and fill the `label` column with `review`
+or `background` using a text editor or spreadsheet. The template command
+refuses to overwrite an existing label file. **Do not upload this file
+or your source logs to GitHub.** Then run:
+
+```powershell
+py honeytrace.py evaluate data/cowrie.json data/session_labels.csv
+```
+
+Results are written to `output/evaluation.json` with precision, recall, F1,
+false-positive rate, counts, and missing-label coverage. Undefined metrics
+are `null`, not zero. Evaluation uses a model fitted to the *same batch* it
+scores and is only a **within-batch diagnostic**, not an independent holdout
+validation or measured production detection accuracy. Anomaly flags are
+unsupervised and may not align with an analyst's `review` labels.
+
+**Security/privacy:** Only copy your own authorized Cowrie logs into `data/`.
+The `.gitignore` excludes logs, manual CSV labels, and generated reports.
+Sessions and command excerpts can still be sensitive; keep them local.

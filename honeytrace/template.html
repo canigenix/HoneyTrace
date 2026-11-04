@@ -26,8 +26,9 @@
 <div class="card"><div class="label">ML outlier flags</div><div class="metric metric-amber" id="anomalyCount">—</div><small id="mlMeta">Relative anomaly detector</small></div>
 </section>
 <section class="sections"><div class="panel"><div class="heading"><h2>Behavior indicators</h2><span class="minor">Non-exclusive session labels</span></div><div class="label-bars" id="labelBars"></div></div><div class="panel"><div class="heading"><h2>Risk distribution</h2><span class="minor">Heuristic score · 0–100</span></div><div id="distribution" class="distribution"></div><div class="legend">Higher scores indicate stronger matches to predefined investigation rules, not the probability of a compromise.</div></div></section>
+<section class="panel" style="margin:16px 0"><div class="heading"><h2>ML behavioral clusters</h2><span class="minor">Exploratory batch-relative feature similarity · not identities</span></div><div class="label-bars" id="clusters"></div></section>
 <section class="main-grid"><div class="panel"><div class="heading"><h2>Session explorer</h2><span class="minor" id="matchCount"></span></div><div class="controls"><input id="search" type="search" placeholder="Search IP, session ID, command or label..." aria-label="Search sessions"><select id="labelFilter" aria-label="Filter by behavior"><option value="">All behaviors</option></select><label class="check"><input id="outliersOnly" type="checkbox"> ML outliers only</label></div><div class="table-wrap"><table class="tbl"><thead><tr><th>Source IP</th><th>Observed behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="sessionRows"></tbody></table></div></div><div class="panel details"><div class="heading"><h2>Session investigation</h2><span class="minor">Evidence-based analysis</span></div><div id="detailContent" class="empty">Select a session to inspect its observed evidence.</div></div></section>
-<footer class="footer"><div class="fine">HoneyTrace ML v0.4 · For defensive learning and authorized monitoring. Behavioral labels are heuristic; the model only ranks unusualness. It does not establish attacker identity, intent, compromise, or calibrated confidence.</div><div>Local-first · No external services · No tracker</div></footer>
+<footer class="footer"><div class="fine">HoneyTrace ML v0.5 · For defensive learning and authorized monitoring. Behavioral labels are heuristic; the model only ranks unusualness. It does not establish attacker identity, intent, compromise, or calibrated confidence.</div><div>Local-first · No external services · No tracker</div></footer>
 </div>
 <script id="payload" type="application/json">__HONEYTRACE_PAYLOAD__</script>
 <script>
@@ -59,6 +60,9 @@ if(!Object.keys(report.labels).length)bars.appendChild(el('div','minor','No acce
 const buckets=[0,0,0,0,0];for(const row of all)buckets[Math.min(4,Math.floor(row.risk/20))]++;
 const largest=Math.max(1,...buckets);
 buckets.forEach((count,i)=>{const x=el('div','bin');x.appendChild(el('strong','',count));const c=el('div','column'+(i>=3?' hi':''));c.style.height=Math.max(2,Math.round(125*count/largest))+'px';x.append(c,el('div','bin-label',`${i*20}–${i===4?'100':i*20+19}`));$('distribution').appendChild(x);});
+const groupBox=$('clusters');
+if(!(report.clusters||[]).length)groupBox.appendChild(el('div','minor','No clusters detected. At least two similar sessions are required.'));
+for(const group of (report.clusters||[]).slice(0,15))groupBox.appendChild(el('div','evidence',`${group.id} · ${group.sessions} sessions · ${group.behavior}`));
 let active=null;
 function detail(row){
  active=row.sensor+'/'+row.session;const root=$('detailContent');root.replaceChildren();root.className='';
@@ -68,6 +72,13 @@ function detail(row){
  const line=el('div','chip-row');for(const label of row.labels)line.appendChild(el('span','chip',label));root.appendChild(line);
  root.appendChild(el('div','detail-title','Observed evidence'));const ev=el('div','evidence');for(const item of row.evidence)ev.appendChild(el('div','',item));root.appendChild(ev);
  root.appendChild(el('div','detail-title','ML anomaly ranking'));const info=el('div','evidence');info.appendChild(el('div','',row.anomaly===null?'Not evaluated (insufficient sessions or ML disabled)':`${row.anomaly?'FLAGGED as unusual':'Not flagged'} · Unusualness rank ${row.anomaly_percentile}/100 (relative, not confidence)`));root.appendChild(info);
+ root.appendChild(el('div','detail-title','ML behavior cluster'));
+ root.appendChild(el('div','evidence',row.ml_cluster?`${row.ml_cluster} · ${row.ml_cluster_size} similar sessions`:'Not assigned (noise or clustering disabled)'));
+ root.appendChild(el('div','minor','Batch-relative similarity, not attacker identity.'));
+ root.appendChild(el('div','detail-title','Anomaly feature contrasts'));
+ if(row.anomaly_factors?.length){for(const f of row.anomaly_factors)root.appendChild(el('div','evidence',f));}
+ else root.appendChild(el('div','minor',row.anomaly===null?'Requires at least 25 sessions':'Not flagged; no anomaly contrasts'));
+ root.appendChild(el('div','minor','Median contrasts are descriptive, not Isolation Forest feature attribution.'));
  root.appendChild(el('div','detail-title','Selected behavioral features'));const feats=el('div','feature-list');
  const pairs=[['Failed logins',row.features.login_failures],['Successful logins',row.features.login_successes],['Commands',row.features.command_count],['Transfers',row.features.file_transfers],['Recon commands',row.features.recon_commands],['Duration (s)',row.features.duration_seconds]];
  pairs.forEach(([name,value])=>{const cell=el('div');cell.append(el('small','',name),el('strong','',value));feats.appendChild(cell);});root.appendChild(feats);

@@ -18,7 +18,7 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 </head>
 <body><div class="shell">
 <header><div><div class="tag">Localhost-only intelligence lab</div><h1>HONEYTRACE <b>LIVE</b></h1></div><div class="status"><span id="statusDot" class="dot"></span><span id="status">Connecting to local monitor…</span></div></header>
-<p class="sub">Automatic Cowrie log ingestion · session timelines · behavioral fingerprints · Isolation Forest anomaly ranking · no cloud services</p>
+<p class="sub">Automatic Cowrie log ingestion · session timelines · fingerprints · ML clusters · anomaly feature contrasts · no cloud services</p>
 <div id="error"></div>
 <div class="stats">
 <div class="stat"><div class="name">Observed sessions</div><div id="sessionCount" class="value">—</div></div>
@@ -27,6 +27,8 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="stat"><div class="name">ML outlier flags</div><div id="mlCount" class="value">—</div></div>
 </div>
 <div class="panel alerts"><h2>Recurring behavioral fingerprints <span class="hint">· matching activity patterns, not attacker identities</span></h2><div class="pattern-controls"><span id="patternStatus" class="hint">No pattern filter selected</span><button id="clearPattern" class="pattern-button" type="button" hidden>Clear pattern filter</button></div><div id="patterns" class="pattern-list"></div></div>
+<div class="panel alerts"><h2>ML behavioral clusters <span class="hint">· exploratory similarity, not attacker identity</span></h2>
+<div class="pattern-controls"><span id="clusterStatus" class="hint">No cluster filter selected</span><button id="clearCluster" class="pattern-button" type="button" hidden>Clear cluster filter</button></div><div id="clusters" class="pattern-list"></div></div>
 <div class="panel alerts"><h2>Recent behavior indicators <span class="hint" id="alertHint"></span></h2><div id="alerts"></div></div>
 <div class="cols">
 <section class="panel"><h2>Session explorer <span class="hint" id="sessionHint"></span></h2>
@@ -34,13 +36,13 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="panel"><h2>Session investigation</h2><div id="details" class="empty">Select a session to inspect commands and evidence.</div></section>
 </div>
-<div class="footer">HoneyTrace v0.4 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
+<div class="footer">HoneyTrace v0.5 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
 </div>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
 const node = (tag, text, cls='') => { const e=document.createElement(tag); e.textContent=String(text); if(cls)e.className=cls; return e; };
-let current=null, chosen=null, lastRevision=-1, busy=false, activePattern=null;
+let current=null, chosen=null, lastRevision=-1, busy=false, activePattern=null, activeCluster=null;
 const nice = value => value===undefined || value===null ? '—' : String(value);
 function status(msg, ok){$('status').textContent=msg;$('statusDot').style.background=ok?'#69d9b4':'#f4b860';}
 function put(id, text){$(id).textContent=nice(text);}
@@ -53,6 +55,13 @@ function detail(row){
  (row.evidence||[]).forEach(t=>box.append(node('div',t,'evidence')));
  box.append(node('h3',`ML anomaly: ${row.anomaly===null?'not evaluated':row.anomaly?'flagged':'not flagged'}`));
  box.append(node('div',row.anomaly===null?'Requires 25 or more sessions (or ML enabled).':`Relative unusualness percentile: ${row.anomaly_percentile} / 100. Not probability or confidence.`,'meta'));
+ box.append(node('h3','ML behavior cluster'));
+ box.append(node('div',row.ml_cluster?`${row.ml_cluster} · ${row.ml_cluster_size} similar sessions`:'Not assigned (noise, insufficient sessions, or clustering disabled)','meta'));
+ box.append(node('div','DBSCAN grouping of session features; cluster IDs are batch-relative and do not identify attackers.','hint'));
+ box.append(node('h3','Anomaly feature contrasts'));
+ if(row.anomaly_factors?.length)row.anomaly_factors.forEach(f=>box.append(node('div',f,'evidence')));
+ else box.append(node('div',row.anomaly===null?'Requires at least 25 sessions for Isolation Forest.':'No anomaly flag; no feature contrasts shown.','hint'));
+ box.append(node('div','Contrasts are descriptive differences from batch medians, not causal model explanations.','hint'));
  box.append(node('h3','Behavioral fingerprint'));
  box.append(node('div',`${row.fingerprint || 'N/A'} · ${row.similar_sessions || 0} other matching sessions`,'meta'));
  box.append(node('div','Deterministic grouping by command families and behavior indicators. This does not establish identity or coordinated activity.','hint'));
@@ -80,10 +89,18 @@ function render(){
  if(!recurring.length)patternBox.append(node('div','No recurring fingerprints yet. Generate two similar Cowrie sessions to test grouping.','empty'));
  for(const pattern of recurring.slice(0,10)){
   const btn=node('button',`${pattern.sessions} sessions · ${pattern.behavior} · ${pattern.fingerprint}`,'pattern-button'+(activePattern===pattern.fingerprint?' selected':''));
-  btn.type='button';btn.addEventListener('click',()=>{activePattern=pattern.fingerprint;render();});patternBox.append(btn);
+  btn.type='button';btn.addEventListener('click',()=>{activePattern=pattern.fingerprint;activeCluster=null;render();});patternBox.append(btn);
  }
  $('patternStatus').textContent=activePattern?'Filtering by '+activePattern:'No pattern filter selected';
  $('clearPattern').hidden=!activePattern;
+ const groups=report.clusters||[];const clusterBox=$('clusters');clusterBox.replaceChildren();
+ if(!groups.length)clusterBox.append(node('div','No ML clusters detected yet. Clustering needs at least two similar sessions.','empty'));
+ for(const group of groups.slice(0,10)){
+  const btn=node('button',`${group.sessions} sessions · ${group.behavior} · ${group.id}`,'pattern-button'+(activeCluster===group.id?' selected':''));
+  btn.type='button';btn.addEventListener('click',()=>{activeCluster=group.id;activePattern=null;render();});clusterBox.append(btn);
+ }
+ $('clusterStatus').textContent=activeCluster?'Filtering by '+activeCluster:'No cluster filter selected';
+ $('clearCluster').hidden=!activeCluster;
  const ab=$('alerts');ab.replaceChildren();if(!alerts.length)ab.append(node('div','No defined behavior indicators yet.','empty'));
  for(const a of alerts.slice(0,8)){
   const item=node('div','','alert-row');item.append(node('strong',a.label));item.append(node('span',`${a.source||'Unknown IP'} · ${a.start}`,'hint'));ab.append(item);
@@ -91,7 +108,7 @@ function render(){
  const prev=$('filter').value;const names=[...new Set(all.flatMap(s=>s.labels||[]))].sort();$('filter').replaceChildren();
  const opts=[['','All behaviors'],...names.map(n=>[n,n])];for(const [value,label] of opts){const o=node('option',label);o.value=value;$('filter').append(o);}if(names.includes(prev))$('filter').value=prev;
  const query=$('search').value.trim().toLowerCase();const category=$('filter').value;
- const matched=all.filter(s=>(!activePattern||s.fingerprint===activePattern)&&(!category||s.labels.includes(category))&&(!query||[s.src_ip,s.session,...s.labels,...s.commands,s.fingerprint||''].join(' ').toLowerCase().includes(query)));
+ const matched=all.filter(s=>(!activeCluster||s.ml_cluster===activeCluster)&&(!activePattern||s.fingerprint===activePattern)&&(!category||s.labels.includes(category))&&(!query||[s.src_ip,s.session,...s.labels,...s.commands,s.fingerprint||''].join(' ').toLowerCase().includes(query)));
  put('sessionHint',`${matched.length} matching`);
  const rows=$('rows');rows.replaceChildren();for(const s of matched.slice(0,250)){
   const key=s.sensor+'/'+s.session;const tr=document.createElement('tr');tr.dataset.session=key;tr.tabIndex=0;if(key===chosen)tr.className='selected';
@@ -113,6 +130,7 @@ async function refresh(){
  }catch(e){status('Unable to reach local monitor: '+e.message,false)}finally{busy=false;}
 }
 $('clearPattern').addEventListener('click',()=>{activePattern=null;render();});
+$('clearCluster').addEventListener('click',()=>{activeCluster=null;render();});
 $('search').addEventListener('input',render);$('filter').addEventListener('change',render);
 refresh();setInterval(refresh,3000);
 </script>

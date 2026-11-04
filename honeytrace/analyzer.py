@@ -18,6 +18,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 from honeytrace.intelligence import annotate_patterns, build_timeline
+from honeytrace.ml_intelligence import MAX_CLUSTER_SESSIONS, cluster_sessions, describe_anomalies
 
 
 MAX_EVENTS = 250_000
@@ -198,6 +199,8 @@ def analyze_events(events: list[dict], *, enable_ml: bool = True) -> dict:
             if row["anomaly"]:
                 row["risk"] = min(100, row["risk"] + 15)
                 row["evidence"].append("Isolation Forest flagged this session as unusual relative to the loaded dataset")
+    describe_anomalies(sessions)
+    clusters = cluster_sessions(sessions, enabled=enable_ml)
     patterns = annotate_patterns(sessions)
     sessions.sort(key=lambda row: (row["risk"], row["start"]), reverse=True)
     by_label = defaultdict(int)
@@ -209,11 +212,15 @@ def analyze_events(events: list[dict], *, enable_ml: bool = True) -> dict:
             "events": len(events), "sessions": len(sessions),
             "unique_sources": len({s["src_ip"] for s in sessions if s["src_ip"]}),
             "ml_enabled": bool(ml_ready),
+            "cluster_enabled": bool(enable_ml and 2 <= len(sessions) <= MAX_CLUSTER_SESSIONS),
+            "ml_explanation_note": "Feature contrasts show differences from the current batch median, not causal Isolation Forest feature importance.",
+            "cluster_note": "DBSCAN clusters use fixed weighted log-count features for 2–2000 sessions; assignments are batch-relative and do not identify attackers.",
             "ml_note": "Isolation Forest scores are relative to this dataset; not attack probabilities."
               if ml_ready else f"Need {MIN_ML_SESSIONS} or more sessions to run anomaly ranking.",
             "generated_at": datetime.now(timezone.utc).isoformat(),
         },
         "labels": dict(sorted(by_label.items(), key=lambda kv: (-kv[1], kv[0]))),
         "patterns": patterns,
+        "clusters": clusters,
         "sessions": sessions,
     }

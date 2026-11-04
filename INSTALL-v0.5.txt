@@ -1,0 +1,16 @@
+HoneyTrace v0.5 -- ML Intelligence update
+
+1. Stop the running HoneyTrace server (Ctrl+C).
+2. Extract this update over your EXISTING HoneyTrace project root. Replace
+   the named Python, HTML, README, and .gitignore files; preserve .git, data,
+   output, and all unrelated files. This is an update, not a new repository.
+3. In a Windows PowerShell terminal in the HoneyTrace project folder:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py live
+
+4. Visit http://127.0.0.1:8765 (refresh once after upgrading).
+5. After testing, from a separate terminal: git status / git add . / git commit / git push
+
+For optional evaluation: read the README section 'ML Intelligence (v0.5)'.
+The 'labels' command generates an UNLABELED CSV. Never commit real logs or labels.

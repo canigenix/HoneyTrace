@@ -6,3 +6,6 @@ output/
 data/*.jsonl
 data/*.json
 .env
+
+data/*.csv
+output/*.csv
