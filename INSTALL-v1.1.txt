@@ -1,0 +1,25 @@
+HoneyTrace v1.1 Detection Intelligence (preview)
+==============================================
+
+1. Stop HoneyTrace Live with Ctrl+C. Back up data/honeytrace-history.sqlite3
+   and its matching .key together. Preserve .git, data, and output.
+
+2. Extract this patch into your existing HoneyTrace v1.0.0 project root.
+   Allow matching source files to be overwritten; do not delete any folder.
+
+3. From Windows PowerShell or CMD in that project folder run:
+     py -m unittest discover -s tests -v
+     py honeytrace.py rules-benchmark
+     py honeytrace.py store-check
+     py honeytrace.py live --archive --archive-origin controlled-lab --backup-hours 24
+
+4. Review docs/DETECTION_INTELLIGENCE.md for label semantics and limitations.
+
+If you want to push source changes after tests pass:
+     git status --short
+     git add honeytrace.py honeytrace/analyzer.py honeytrace/detection.py honeytrace/rule_benchmark.py honeytrace/live.html honeytrace/template.html tests/test_detection.py README.md docs/DETECTION_INTELLIGENCE.md INSTALL-v1.1.txt
+     git commit -m "Add HoneyTrace v1.1 command-aware detection intelligence"
+     git push
+
+Private data files, raw Cowrie logs, key files and local backups must not
+be committed to GitHub. No automated attacker attribution is provided.

@@ -71,6 +71,7 @@ function detail(row){
  root.appendChild(el('div','risk '+riskClass(row.risk),`HEURISTIC RISK ${row.risk}/100 — ${riskLevel(row.risk)}`));
  const line=el('div','chip-row');for(const label of row.labels)line.appendChild(el('span','chip',label));root.appendChild(line);
  root.appendChild(el('div','detail-title','Observed evidence'));const ev=el('div','evidence');for(const item of row.evidence)ev.appendChild(el('div','',item));root.appendChild(ev);
+ if(row.rule_ids?.length)root.appendChild(el('div','detail-meta','Rule IDs: '+row.rule_ids.join(', ')+' · heuristic syntax matches, not attacker attribution.'));
  root.appendChild(el('div','detail-title','ML anomaly ranking'));const info=el('div','evidence');info.appendChild(el('div','',row.anomaly===null?'Not evaluated (insufficient sessions or ML disabled)':`${row.anomaly?'FLAGGED as unusual':'Not flagged'} · Unusualness rank ${row.anomaly_percentile}/100 (relative, not confidence)`));root.appendChild(info);
  root.appendChild(el('div','detail-title','ML behavior cluster'));
  root.appendChild(el('div','evidence',row.ml_cluster?`${row.ml_cluster} · ${row.ml_cluster_size} similar sessions`:'Not assigned (noise or clustering disabled)'));

@@ -15,6 +15,7 @@ from honeytrace.validation_report import write_validation_html
 from honeytrace.curation import audit_dataset, export_review_queue
 from honeytrace.archive import ORIGINS, archive_import, archive_summary, archive_export, archive_check
 from honeytrace.backup import create_backup, verify_backup, restore_backup
+from honeytrace.rule_benchmark import SAMPLE_CASES, benchmark_rules, load_cases
 
 
 def main() -> None:
@@ -83,7 +84,24 @@ def main() -> None:
     restore = sub.add_parser("store-restore", help="Restore a verified backup to a NEW archive path only")
     restore.add_argument("folder", type=Path)
     restore.add_argument("--target", type=Path, default=Path("data/honeytrace-restored.sqlite3"))
+    rules = sub.add_parser("rules-benchmark", help="Check command-rule agreement on synthetic or reviewed syntax examples")
+    rules.add_argument("input", nargs="?", type=Path, help="Optional JSONL with command and expected categories")
+    rules.add_argument("--output", type=Path, default=None, help="Optional new aggregate-only JSON report (refuses overwrite)")
     args = parser.parse_args()
+    if args.command == "rules-benchmark":
+        try:
+            cases = load_cases(args.input) if args.input is not None else SAMPLE_CASES
+            report = benchmark_rules(cases, origin="analyst-supplied" if args.input is not None else "synthetic-fixtures")
+            if args.output is not None:
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                with args.output.open("x", encoding="utf-8") as stream:
+                    json.dump(report, stream, indent=2)
+                print(f"Aggregate-only rule report: {args.output.resolve()}")
+            print(f"Rule checks: {report['cases']} | Exact agreement: {report['exact_match_rate']} | Micro F1: {report['micro']['f1']}")
+            print("Synthetic/category-only test: these are not verified real attacks or ML accuracy scores.")
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        return
     if args.command in ("store-backup", "store-verify-backup", "store-restore"):
         try:
             if args.command == "store-backup":

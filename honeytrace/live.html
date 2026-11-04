@@ -38,7 +38,7 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="panel"><h2>Session investigation</h2><div id="details" class="empty">Select a session to inspect commands and evidence.</div></section>
 </div>
-<div class="footer">HoneyTrace v1.0 RC1 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
+<div class="footer">HoneyTrace v1.1 detection preview · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
 </div>
 <script>
 'use strict';
@@ -66,6 +66,7 @@ function detail(row){
  const lab=node('div','');(row.labels||[]).forEach(t=>lab.append(node('span',t,'pill')));box.append(lab);
  box.append(node('h3','Evidence'));
  (row.evidence||[]).forEach(t=>box.append(node('div',t,'evidence')));
+ if(row.rule_ids?.length)box.append(node('div',`Rule IDs · ${row.rule_ids.join(', ')} · heuristic syntax matches, not proof of intent`,'hint'));
  box.append(node('h3',`ML anomaly: ${row.anomaly===null?'not evaluated':row.anomaly?'flagged':'not flagged'}`));
  box.append(node('div',row.anomaly===null?'Requires 25 or more sessions (or ML enabled).':`Relative unusualness percentile: ${row.anomaly_percentile} / 100. Not probability or confidence.`,'meta'));
  box.append(node('h3','ML behavior cluster'));

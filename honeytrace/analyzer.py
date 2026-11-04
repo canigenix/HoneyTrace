@@ -12,12 +12,12 @@ from pathlib import Path
 import bisect
 import json
 import math
-import re
 
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
 from honeytrace.intelligence import annotate_patterns, build_timeline
+from honeytrace.detection import RULE_VERSION, session_indicators
 from honeytrace.ml_intelligence import MAX_CLUSTER_SESSIONS, cluster_sessions, describe_anomalies
 
 
@@ -25,13 +25,7 @@ MAX_EVENTS = 250_000
 MAX_LINE_BYTES = 128_000
 MIN_ML_SESSIONS = 25
 
-# Intentionally simple, auditable detectors. False positives are expected.
-RECON = re.compile(r"\b(?:uname|whoami|id|hostname|ifconfig|ip\s+addr|ip\s+route|netstat|ss\s+-|ps\s+aux|ls\s|cat\s+/etc/(?:passwd|os-release)|pwd\b|lscpu)\b", re.I)
-DELIVERY = re.compile(r"\b(?:wget|curl|tftp|ftpget|scp)\b", re.I)
-PERSISTENCE = re.compile(r"(?:\bcrontab\b|/etc/cron\b|authorized_keys|\bsystemctl\s+enable\b|/etc/rc\.local)", re.I)
-DESTRUCTIVE = re.compile(r"(?:\brm\s+-rf\b|\bmkfs(?:\.[a-z0-9]+)?\b|\bdd\s+if=\b|\bshred\b)", re.I)
-PRIV_ESC = re.compile(r"(?:\bsudo\s+-l\b|/etc/shadow|\bfind\s+/.*-perm\b|\bgetcap\b)", re.I)
-OBFUSCATION = re.compile(r"(?:\bbase64\s+(?:-d|--decode)\b|\b(?:bash|python3?|perl)\s+-c\b|\beval\s+\$)", re.I)
+# Command-aware detection rules live in honeytrace.detection (no shell execution).
 
 FEATURES = (
     "login_failures", "login_successes", "command_count", "unique_commands",
@@ -79,10 +73,6 @@ def load_events(path: str | Path) -> tuple[list[dict], dict]:
     return events, stats
 
 
-def _match(pattern: re.Pattern, command: str) -> bool:
-    return bool(pattern.search(command))
-
-
 def _safe(value: object, limit: int = 240) -> str:
     return str(value or "")[:limit]
 
@@ -103,17 +93,18 @@ def _session_row(key: tuple[str, str], events: list[dict]) -> dict:
                 duration = max(duration, float(event.get("duration_ms", 0)) / 1000.0)
             except (ValueError, TypeError):
                 pass
+    command_hits, rule_ids = session_indicators(commands)
     feature = {
         "login_failures": names.count("cowrie.login.failed"),
         "login_successes": names.count("cowrie.login.success"),
         "command_count": len(commands),
         "unique_commands": len(set(commands)),
-        "recon_commands": sum(_match(RECON, c) for c in commands),
-        "delivery_commands": sum(_match(DELIVERY, c) for c in commands),
-        "persistence_commands": sum(_match(PERSISTENCE, c) for c in commands),
-        "destructive_commands": sum(_match(DESTRUCTIVE, c) for c in commands),
-        "privilege_commands": sum(_match(PRIV_ESC, c) for c in commands),
-        "obfuscated_commands": sum(_match(OBFUSCATION, c) for c in commands),
+        "recon_commands": command_hits.get("recon", 0),
+        "delivery_commands": command_hits.get("delivery", 0),
+        "persistence_commands": command_hits.get("persistence", 0),
+        "destructive_commands": command_hits.get("destructive", 0),
+        "privilege_commands": command_hits.get("privilege", 0),
+        "obfuscated_commands": command_hits.get("obfuscated", 0),
         "file_transfers": sum(n in {"cowrie.session.file_download", "cowrie.session.file_upload"} for n in names),
         "exploit_indicators": sum(n.endswith(".exploit_attempt") or n.endswith(".exploit_success") for n in names),
         "duration_seconds": round(min(duration, 86400.0), 1),
@@ -144,6 +135,9 @@ def _session_row(key: tuple[str, str], events: list[dict]) -> dict:
     if feature["exploit_indicators"]:
         labels.append("Exploit indicator")
         evidence.append(f"{feature['exploit_indicators']} honeypot exploit events")
+    if command_hits.get("delivery", 0) and command_hits.get("execution", 0):
+        labels.append("Retrieval-and-execution pattern")
+        evidence.append("Retrieval and executable invocation in one session; file linkage is unverified")
     if not labels:
         labels.append("Unclassified interaction")
         evidence.append("No defined behavioral indicators matched")
@@ -159,13 +153,14 @@ def _session_row(key: tuple[str, str], events: list[dict]) -> dict:
         + (60 if feature["destructive_commands"] else 0)
         + (55 if feature["exploit_indicators"] else 0)
         + (8 if feature["login_successes"] else 0)
+        + (12 if command_hits.get("delivery", 0) and command_hits.get("execution", 0) else 0)
     ))
     return {
         "session": key[1], "sensor": key[0],
         "src_ip": _safe(next((e.get("src_ip") for e in events if e.get("src_ip")), first.get("src_ip")), 80),
         "protocol": _safe(first.get("protocol", "unknown"), 16),
         "start": start.isoformat() if start else "Unknown",
-        "labels": labels, "evidence": evidence,
+        "labels": labels, "evidence": evidence, "rule_ids": rule_ids,
         "commands": commands[:50],
         "timeline": build_timeline(events),
         "features": feature,
@@ -210,6 +205,7 @@ def analyze_events(events: list[dict], *, enable_ml: bool = True) -> dict:
     return {
         "meta": {
             "events": len(events), "sessions": len(sessions),
+            "rule_engine_version": RULE_VERSION,
             "unique_sources": len({s["src_ip"] for s in sessions if s["src_ip"]}),
             "ml_enabled": bool(ml_ready),
             "cluster_enabled": bool(enable_ml and 2 <= len(sessions) <= MAX_CLUSTER_SESSIONS),

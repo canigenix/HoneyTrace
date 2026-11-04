@@ -362,3 +362,23 @@ Dependency installation requires network access, but HoneyTrace does not use any
 cloud service to process logs. scikit-learn 1.8+ supports Python 3.11–3.14.
 The ML detection model and its accuracy remain experimental, not independently
 validated against diverse real-world attacks.
+
+## v1.1 Detection Intelligence (preview)
+
+The v1.1 update adds command-aware heuristic rules and visible rule IDs to the
+live/offline investigation views, reducing obvious false positives when an `echo`
+or `grep` only **mentions** an attack-looking command. It also flags the
+co-occurrence of retrieval and execution syntax within a single session; this
+does not prove one file was retrieved and run. The ML model is unchanged.
+
+From Windows PowerShell/CMD in the repository root:
+
+```powershell
+py honeytrace.py rules-benchmark
+```
+
+This built-in command checks **30 synthetic command-category fixtures**. The
+results are not real-world attack accuracy or independent ML validation. For
+private reviewed categories, the command also accepts a JSONL file with
+`command` and `expected` fields. Read [docs/DETECTION_INTELLIGENCE.md](docs/DETECTION_INTELLIGENCE.md)
+for the categories, CSV/JSONL privacy cautions, and known false negatives.
