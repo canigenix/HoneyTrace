@@ -1,0 +1,25 @@
+HONEYTRACE v0.6 — VALIDATION LAB
+
+1. Stop any currently running HoneyTrace live process with Ctrl+C (optional
+   if you only want to use the new validation command).
+2. Extract HoneyTrace-v0.6.0-validation-update.zip into your existing
+   HoneyTrace project folder — the one containing honeytrace.py and .git.
+   Merge folders and replace matching code files. Keep .git, data and output.
+3. Open a Windows PowerShell terminal in that folder and run:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py validate-demo
+   start .\output\demo-holdout-validation.html
+
+4. Optionally restart your working live monitor:
+   py honeytrace.py live
+
+5. Inspect Git changes before publishing:
+   git status
+   git add honeytrace.py honeytrace/validation.py honeytrace/validation_report.py tests/test_validation.py docs/VALIDATION.md README.md .gitignore INSTALL-v0.6.txt
+   git commit -m "Add source-disjoint ML validation and reporting"
+   git push
+
+Note: The v0.6 demo is synthetic and may show very poor ML recall. This is
+an evaluation result, NOT proof of performance on real networks.
+See docs/VALIDATION.md before working with actual labeled sessions.

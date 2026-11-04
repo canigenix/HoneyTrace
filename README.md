@@ -207,3 +207,29 @@ unsupervised and may not align with an analyst's `review` labels.
 **Security/privacy:** Only copy your own authorized Cowrie logs into `data/`.
 The `.gitignore` excludes logs, manual CSV labels, and generated reports.
 Sessions and command excerpts can still be sensitive; keep them local.
+
+## Holdout ML validation (v0.6)
+
+The new **Validation Lab** evaluates an independent, frozen anomaly model on
+manually labeled sessions from *different source groups*, and compares it with
+HoneyTrace's fixed rule-score baseline. It produces aggregate-only JSON and HTML
+reports with confusion matrices, precision, recall, F1, false-positive rate,
+and uncertainty intervals. It does not change the live dashboard's model.
+
+For an entirely synthetic first run:
+
+```powershell
+py honeytrace.py validate-demo
+start .\output\demo-holdout-validation.html
+```
+
+For your own labeled, source-disjoint logs:
+
+```powershell
+py honeytrace.py validate data/train.jsonl data/train_labels.csv data/test.jsonl data/test_labels.csv
+```
+
+**Read [docs/VALIDATION.md](docs/VALIDATION.md) before interpreting scores.**
+You need at least 25 independently labeled background training sessions, and
+sessions from different source IP groups for testing. Your current small
+localhost Cowrie sample is insufficient. Demo metrics are not claims of accuracy.

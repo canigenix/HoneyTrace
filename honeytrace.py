@@ -9,6 +9,8 @@ from honeytrace.demo import create_demo
 from honeytrace.report import write_report
 from honeytrace.live import Monitor, serve_dashboard
 from honeytrace.ml_intelligence import export_label_template, evaluate_session_labels
+from honeytrace.validation import create_validation_demo, validate_holdout
+from honeytrace.validation_report import write_validation_html
 
 
 def main() -> None:
@@ -34,6 +36,41 @@ def main() -> None:
     evaluate.add_argument("input", type=Path, help="Cowrie JSONL file")
     evaluate.add_argument("labels", type=Path, help="CSV with sensor,session,label (review or background)")
     evaluate.add_argument("--output", type=Path, default=Path("output/evaluation.json"))
+    validation = sub.add_parser("validate", help="Evaluate a training-only anomaly model on source-disjoint, manually labeled holdout sessions")
+    validation.add_argument("train_log", type=Path, help="Training Cowrie JSONL")
+    validation.add_argument("train_labels", type=Path, help="Training CSV with analyst-reviewed background labels")
+    validation.add_argument("test_log", type=Path, help="Independent testing Cowrie JSONL")
+    validation.add_argument("test_labels", type=Path, help="Independent testing CSV with review/background labels")
+    validation.add_argument("--contamination", type=float, default=0.08, help="Fixed training contamination 0.01-0.25 (default: 0.08)")
+    validation.add_argument("--output", type=Path, default=Path("output/holdout-validation.json"))
+    validation_demo = sub.add_parser("validate-demo", help="Generate entirely synthetic, labeled holdout fixtures and validate the pipeline")
+    validation_demo.add_argument("--dir", type=Path, default=Path("data/validation-demo"), help="Must be a new/empty directory")
+    validation_demo.add_argument("--output", type=Path, default=Path("output/demo-holdout-validation.json"))
+    args = parser.parse_args()
+    if args.command in ("validate", "validate-demo"):
+        try:
+            if args.command == "validate-demo":
+                paths = create_validation_demo(args.dir)
+                report = validate_holdout(paths["training_log"], paths["training_labels"], paths["testing_log"], paths["testing_labels"])
+                report["dataset_origin"] = "synthetic-fixture; NOT a real-world performance benchmark"
+            else:
+                report = validate_holdout(args.train_log, args.train_labels, args.test_log, args.test_labels, contamination=args.contamination)
+                report["dataset_origin"] = "user-supplied; not independently verified"
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+            html_path = args.output.with_suffix(".html")
+            write_validation_html(report, html_path)
+            metrics = report["model"]
+            print(f"Held-out labeled: {metrics['evaluated']} | Precision: {metrics['precision']} | Recall: {metrics['recall']} | F1: {metrics['f1']}")
+            print(f"Validation report: {args.output.resolve()}")
+            print(f"Offline HTML dashboard: {html_path.resolve()}")
+            if args.command == "validate-demo":
+                print("SYNTHETIC DEMO ONLY — no real-world accuracy has been established.")
+            for warning in report["warnings"]:
+                print("Validation warning:", warning)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        return
     args = parser.parse_args()
     if args.command in ("labels", "evaluate"):
         try:
