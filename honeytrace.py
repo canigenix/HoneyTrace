@@ -11,6 +11,7 @@ from honeytrace.live import Monitor, serve_dashboard
 from honeytrace.ml_intelligence import export_label_template, evaluate_session_labels
 from honeytrace.validation import create_validation_demo, validate_holdout
 from honeytrace.validation_report import write_validation_html
+from honeytrace.curation import audit_dataset, export_review_queue
 
 
 def main() -> None:
@@ -46,7 +47,35 @@ def main() -> None:
     validation_demo = sub.add_parser("validate-demo", help="Generate entirely synthetic, labeled holdout fixtures and validate the pipeline")
     validation_demo.add_argument("--dir", type=Path, default=Path("data/validation-demo"), help="Must be a new/empty directory")
     validation_demo.add_argument("--output", type=Path, default=Path("output/demo-holdout-validation.json"))
+    review = sub.add_parser("review-queue", help="Create a private blank analyst review CSV (does not infer labels)")
+    review.add_argument("input", type=Path, help="Cowrie JSONL file")
+    review.add_argument("--output", type=Path, default=Path("data/review-queue.csv"))
+    audit = sub.add_parser("audit", help="Write an aggregate-only dataset quality report")
+    audit.add_argument("input", type=Path, help="Cowrie JSONL file")
+    audit.add_argument("--labels", type=Path, default=None, help="Optional reviewed CSV (sensor,session,label)")
+    audit.add_argument("--origin", choices=("unverified", "controlled-lab", "synthetic", "independent-observations"), default="unverified")
+    audit.add_argument("--output", type=Path, default=Path("output/dataset-audit.json"))
     args = parser.parse_args()
+    if args.command in ("review-queue", "audit"):
+        try:
+            if args.command == "review-queue":
+                events, _ = load_events(args.input)
+                result = analyze_events(events, enable_ml=False)
+                count = export_review_queue(result, args.output)
+                print(f"Created {count} blank review rows: {args.output.resolve()}")
+                print("Inspect original sessions privately. Fill label with review or background; do not commit CSVs or raw logs.")
+            else:
+                result = audit_dataset(args.input, args.labels, origin=args.origin)
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+                q = result["quality"]
+                print(f"Sessions: {q['sessions']} | distinct sources: {q['distinct_source_ips']} | labeled: {q['labels']['review'] + q['labels']['background']}")
+                print(f"Aggregate audit: {args.output.resolve()}")
+                for warning in result["warnings"]:
+                    print("Audit warning:", warning)
+        except (OSError, ValueError) as error:
+            parser.error(str(error))
+        return
     if args.command in ("validate", "validate-demo"):
         try:
             if args.command == "validate-demo":
@@ -71,7 +100,6 @@ def main() -> None:
         except (OSError, ValueError) as error:
             parser.error(str(error))
         return
-    args = parser.parse_args()
     if args.command in ("labels", "evaluate"):
         try:
             events, stats = load_events(args.input)

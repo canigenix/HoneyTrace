@@ -1,0 +1,32 @@
+HoneyTrace v0.7 — Dataset Review & Quality Audit
+=================================================
+
+1) Open your current HoneyTrace project in VS Code. Keep the existing
+   .git, data and output folders. The live Cowrie server can remain running.
+
+2) Extract this update ZIP into the project directory beside honeytrace.py.
+   Let Windows merge/replace matching files. This adds one Python module,
+   one test file and new documentation; it does NOT alter Docker settings.
+
+3) Open a new Windows PowerShell terminal and run:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py audit data/cowrie.json --origin controlled-lab
+   py honeytrace.py review-queue data/cowrie.json
+
+   Inspect output/dataset-audit.json and data/review-queue.csv locally.
+   If review-queue.csv exists already, DO NOT overwrite; use --output
+   data/review-queue-new.csv for a new, blank snapshot.
+
+4) To push only the code/doc changes (never data and output), run:
+
+   git status
+   git add honeytrace.py honeytrace/curation.py tests/test_curation.py README.md docs/DATASET_REVIEW.md INSTALL-v0.7.txt
+   git commit -m "Add dataset review queue and quality audit"
+   git push
+
+Your existing live server: py honeytrace.py live
+Dashboard: http://127.0.0.1:8765
+
+No live Docker integration tests were run in the development environment.
+The offline unit/CLI regression suite passed.

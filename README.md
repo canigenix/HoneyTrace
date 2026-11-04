@@ -233,3 +233,24 @@ py honeytrace.py validate data/train.jsonl data/train_labels.csv data/test.jsonl
 You need at least 25 independently labeled background training sessions, and
 sessions from different source IP groups for testing. Your current small
 localhost Cowrie sample is insufficient. Demo metrics are not claims of accuracy.
+
+## Dataset review and quality audit (v0.7)
+
+HoneyTrace now supports **private review worksheets** and **aggregate-only dataset audits**. This helps you assess whether your captured Cowrie sessions are suitable for ML experiments without mistaking localhost demonstrations for independent attack data.
+
+From a second Windows PowerShell terminal while your existing monitor runs:
+
+```powershell
+py honeytrace.py audit data/cowrie.json --origin controlled-lab
+py honeytrace.py review-queue data/cowrie.json
+```
+
+The audit writes `output/dataset-audit.json` with aggregate quality metrics and warnings. The worksheet writes `data/review-queue.csv` with blank `review` / `background` labels for manual inspection. These labels must be assigned by a human; HoneyTrace does not silently turn heuristics into ground truth. Both files are excluded from Git by the existing ignore rules, but still check before publishing. The worksheet refuses to overwrite an existing file.
+
+After manually reviewing sessions using your local dashboard or source logs:
+
+```powershell
+py honeytrace.py audit data/cowrie.json --labels data/review-queue.csv --origin controlled-lab
+```
+
+**This is not ML accuracy validation.** Your localhost sessions share a Docker source address and do not establish source-disjoint generalization. Read [docs/DATASET_REVIEW.md](docs/DATASET_REVIEW.md) for privacy, review guidance, and limitations. Use `py honeytrace.py validate ...` for separate labeled holdout datasets when you have them.
