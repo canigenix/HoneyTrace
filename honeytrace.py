@@ -13,7 +13,7 @@ from honeytrace.ml_intelligence import export_label_template, evaluate_session_l
 from honeytrace.validation import create_validation_demo, validate_holdout
 from honeytrace.validation_report import write_validation_html
 from honeytrace.curation import audit_dataset, export_review_queue
-from honeytrace.archive import ORIGINS, archive_import, archive_summary, archive_export
+from honeytrace.archive import ORIGINS, archive_import, archive_summary, archive_export, archive_check
 
 
 def main() -> None:
@@ -32,6 +32,9 @@ def main() -> None:
     live.add_argument("--port", type=int, default=8765)
     live.add_argument("--interval", type=int, default=5, help="Polling interval (2-60 seconds)")
     live.add_argument("--no-ml", action="store_true")
+    live.add_argument("--archive", action="store_true", help="Opt in to continuous local SQLite archiving")
+    live.add_argument("--archive-store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    live.add_argument("--archive-origin", choices=ORIGINS, default="unverified")
     labels = sub.add_parser("labels", help="Export a blank per-session CSV for manual review labels")
     labels.add_argument("input", type=Path, help="Cowrie JSONL file")
     labels.add_argument("--output", type=Path, default=Path("data/session_labels.csv"))
@@ -64,11 +67,13 @@ def main() -> None:
     arch.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
     status = sub.add_parser("store-status", help="Show aggregate archive counts without private IDs")
     status.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    check = sub.add_parser("store-check", help="Read-only SQLite and stored snapshot integrity checks")
+    check.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
     export = sub.add_parser("store-export", help="Export private pseudonymized feature CSV")
     export.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
     export.add_argument("--output", type=Path, default=Path("data/honeytrace-features.csv"))
     args = parser.parse_args()
-    if args.command in ("store-import", "store-status", "store-export"):
+    if args.command in ("store-import", "store-status", "store-export", "store-check"):
         try:
             if args.command == "store-import":
                 result = archive_import(args.input, store_path=args.store, labels_path=args.labels, origin=args.origin)
@@ -77,6 +82,11 @@ def main() -> None:
                     print("Dataset note: One source group is insufficient for independent holdout validation.")
             elif args.command == "store-status":
                 print(json.dumps(archive_summary(args.store), indent=2))
+            elif args.command == "store-check":
+                report = archive_check(args.store)
+                print(json.dumps(report, indent=2))
+                if not report["ok"]:
+                    raise SystemExit(1)
             else:
                 count = archive_export(args.store, output=args.output)
                 print(f"Wrote {count} privacy-minimized feature rows to {args.output}")
@@ -151,7 +161,8 @@ def main() -> None:
             parser.error("--port must be between 1024 and 65535")
         monitor = Monitor(input_path=args.input, source=args.source, container=args.container,
                           container_path=args.container_path, interval=args.interval,
-                          enable_ml=not args.no_ml)
+                          enable_ml=not args.no_ml, archive_enabled=args.archive,
+                          archive_store=args.archive_store, archive_origin=args.archive_origin)
         try:
             serve_dashboard(monitor, port=args.port)
         except OSError as error:

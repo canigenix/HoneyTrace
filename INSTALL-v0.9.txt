@@ -1,0 +1,24 @@
+HoneyTrace v0.9 — Continuous SQLite Archiving & Integrity Checks
+
+1. Close the currently running HoneyTrace Live terminal with Ctrl+C.
+2. Extract this ZIP over your existing HoneyTrace repository, replacing matching
+   source files. DO NOT overwrite/delete .git, data, output, or your .key file.
+3. From Windows PowerShell inside the HoneyTrace project:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py store-check
+   py honeytrace.py store-status
+   py honeytrace.py live --archive --archive-origin controlled-lab
+
+   Browser: http://127.0.0.1:8765
+   Stop with Ctrl+C. To use unchanged monitoring without storage, omit --archive.
+
+4. From a SECOND PowerShell terminal, after tests pass:
+
+   git add honeytrace.py honeytrace/archive.py honeytrace/live.py honeytrace/live.html tests/test_continuous_archive.py README.md docs/CONTINUOUS_ARCHIVE.md INSTALL-v0.9.txt
+   git commit -m "Add continuous honeypot archiving and integrity checks"
+   git push
+
+NO RAW LOGS OR PRIVATE DATABASES TO GITHUB. The Git-ignored data/ folder and
+its .key file are essential for preserving your existing archive history.
+The origin flag only declares collection context and does not verify provenance.

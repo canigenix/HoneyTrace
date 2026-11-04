@@ -276,3 +276,27 @@ A source-group pseudonym, dataset checksum, or origin declaration does not
 prove real attacker identity or valid ML evaluation provenance.
 
 For instructions and limitations, see [docs/ARCHIVE.md](docs/ARCHIVE.md).
+
+## Continuous local archiving & integrity checks (v0.9)
+
+HoneyTrace Live can now **optionally** archive derived Cowrie session features
+and their revisions directly into the existing v0.8 SQLite database. It
+preserves existing human review labels when importing changed sessions without
+an explicit CSV, deduplicates unchanged snapshots, and keeps archive errors
+separate from live monitoring. Everything remains local-only.
+
+```powershell
+py honeytrace.py store-check
+py honeytrace.py live --archive --archive-origin controlled-lab
+```
+
+The origin shown is self-declared, not verified. Omit `--archive-origin` for
+unverified sensor traffic. Without `--archive`, live monitoring behaves as
+before. On the dashboard, see **Local dataset archive** for status and warnings.
+The `store-check` command performs SQLite structural, foreign-key, key-binding,
+and row-hash consistency checks without changing the database; **it is not
+cryptographic tamper detection**, encryption, or proof of accuracy.
+
+Read **[docs/CONTINUOUS_ARCHIVE.md](docs/CONTINUOUS_ARCHIVE.md)** before
+interpreting results or making backups. Never upload your `data/` folder,
+manual labels, raw logs, SQLite file, or `.key` to the public repository.

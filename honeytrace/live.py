@@ -16,9 +16,11 @@ import subprocess
 import tempfile
 from threading import Event, Lock, Thread
 from typing import Any
+import sqlite3
 from urllib.parse import urlsplit
 
 from honeytrace.analyzer import analyze_events, load_events
+from honeytrace.archive import ORIGINS, archive_import
 
 DEFAULT_COWRIE_LOG = "/cowrie/cowrie-git/var/log/cowrie/cowrie.json"
 MAX_LIVE_FILE_BYTES = 20 * 1024 * 1024
@@ -93,6 +95,9 @@ class Monitor:
         self, *, input_path: Path, source: str = "docker", container: str = "honeytrace-cowrie",
         container_path: str = DEFAULT_COWRIE_LOG, interval: int = 5,
         enable_ml: bool = True,
+        archive_enabled: bool = False,
+        archive_store: Path = Path("data/honeytrace-history.sqlite3"),
+        archive_origin: str = "unverified",
     ) -> None:
         if source not in ("docker", "file"):
             raise ValueError("source must be 'docker' or 'file'")
@@ -104,6 +109,16 @@ class Monitor:
         self.container_path = container_path
         self.interval = interval
         self.enable_ml = enable_ml
+        if archive_origin not in ORIGINS:
+            raise ValueError("Invalid archive origin declaration")
+        self.archive_enabled = archive_enabled
+        self.archive_store = Path(archive_store)
+        self.archive_origin = archive_origin
+        self._archived_digest: str | None = None
+        self._archive_error: str | None = None
+        self._archive_checked: str | None = None
+        self._archive_last_success: str | None = None
+        self._archive_added_versions = 0
         self._lock = Lock()
         self._stop = Event()
         self._last_digest: str | None = None
@@ -157,9 +172,30 @@ class Monitor:
                     self._revision += 1
                     self._changed = _utc_now()
                     self._last_digest = digest
+            # Archive retries are independent from dashboard analysis. A busy,
+            # unwritable, or mismatched SQLite database must not block viewing.
+            # Failed snapshots retry on the next poll even if the log is unchanged.
+            if self.archive_enabled and digest != self._archived_digest:
+                try:
+                    saved = archive_import(self.input_path, store_path=self.archive_store,
+                                           origin=self.archive_origin)
+                    with self._lock:
+                        self._archived_digest = digest
+                        self._archive_last_success = _utc_now()
+                        self._archive_added_versions = saved["added_versions"]
+                        self._archive_error = None
+                except (OSError, RuntimeError, ValueError, sqlite3.DatabaseError) as exc:
+                    with self._lock:
+                        # Avoid echoing raw log content in the HTTP error field.
+                        self._archive_error = (
+                            "Local archive failed; check database/key and file permissions "
+                            f"({type(exc).__name__}). Retry is automatic."
+                        )
             with self._lock:
                 self._checked = _utc_now()
                 self._error = None
+                if self.archive_enabled:
+                    self._archive_checked = self._checked
             return True
         except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
             with self._lock:
@@ -174,6 +210,14 @@ class Monitor:
                 "revision": self._revision,
                 "report": self._report,
                 "alerts": self._alerts,
+                "archive": {
+                    "enabled": self.archive_enabled,
+                    "origin": self.archive_origin if self.archive_enabled else None,
+                    "last_checked": self._archive_checked,
+                    "last_success": self._archive_last_success,
+                    "last_added_versions": self._archive_added_versions,
+                    "error": self._archive_error,
+                },
                 "monitor": {
                     "source": self.source,
                     "interval_seconds": self.interval,

@@ -173,6 +173,17 @@ def archive_import(
             sensor, session = str(row["sensor"]), str(row["session"])
             feature_data = {name: row["features"][name] for name in FEATURES}
             label = labels.get((sensor, session), "")
+            session_token = _token(key, "session", sensor + "\x00" + session)
+            # An automatic live import has no reviewed CSV. Preserve the
+            # previous human judgment instead of resetting it to unlabeled.
+            # An explicitly supplied CSV is authoritative, even if blank.
+            if labels_path is None:
+                previous = conn.execute(
+                    "SELECT review_label FROM observations WHERE session_token=? ORDER BY id DESC LIMIT 1",
+                    (session_token,),
+                ).fetchone()
+                if previous is not None:
+                    label = previous["review_label"]
             day_time = parse_time(row["start"])
             day = day_time.date().isoformat() if day_time else None
             indicators = sorted(row["labels"])
@@ -186,7 +197,7 @@ def archive_import(
                 import_id, session_token, source_token, sensor_token, observed_day,
                 fingerprint, features_json, indicators_json, review_label, event_count, snapshot_sha256
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (import_id, _token(key, "session", sensor + "\x00" + session),
+            """, (import_id, session_token,
                   _token(key, "source", row["src_ip"]) if row["src_ip"] else "",
                   _token(key, "sensor", sensor), day, row["fingerprint"],
                   json.dumps(feature_data, sort_keys=True), json.dumps(indicators), label,
@@ -248,3 +259,71 @@ def archive_export(store_path: str | Path = "data/honeytrace-history.sqlite3",
                              "review_label": row["review_label"], "event_count": row["event_count"],
                              **features})
     return len(rows)
+
+
+def archive_check(store_path: str | Path = "data/honeytrace-history.sqlite3") -> dict:
+    """Read-only SQLite and stored-snapshot consistency checks for schema 1.
+
+    These checks detect many accidental corruptions and some inconsistent edits.
+    The archive is NOT tamper-proof: a person with write access can recompute
+    unkeyed row digests or replace the database and .key together.
+    """
+    store = Path(store_path)
+    if not store.is_file():
+        raise FileNotFoundError(f"No local archive yet: {store}")
+    keyfile = _secret_path(store)
+    if not keyfile.is_file():
+        raise ValueError("Archive key missing; restore the database and .key together")
+    key = keyfile.read_bytes()
+    if len(key) != 32:
+        raise ValueError("Archive key invalid; expected the original 32-byte .key")
+
+    errors: list[str] = []
+    checked = 0
+    mismatches = 0
+    foreign_key_violations = 0
+    sqlite_result = "not checked"
+    imports = versions = 0
+    # Read-only URI prevents an integrity check from creating or mutating a DB.
+    with closing(sqlite3.connect(store.resolve().as_uri() + "?mode=ro", uri=True)) as conn:
+        conn.row_factory = sqlite3.Row
+        results = [r[0] for r in conn.execute("PRAGMA integrity_check(10)")]
+        sqlite_result = "ok" if results == ["ok"] else "failed"
+        if sqlite_result != "ok":
+            errors.append("SQLite integrity_check reported structural problems")
+        foreign_key_violations = len(conn.execute("PRAGMA foreign_key_check").fetchall())
+        if foreign_key_violations:
+            errors.append("Orphaned SQLite foreign-key references found")
+        metadata = {r["name"]: r["value"] for r in conn.execute("SELECT name, value FROM metadata")}
+        if metadata.get("schema") != SCHEMA_VERSION:
+            errors.append("Archive schema does not match supported version")
+        if metadata.get("key_sha256") != sha256(key).hexdigest():
+            errors.append("Archive key does not match the database")
+        imports = conn.execute("SELECT COUNT(*) FROM imports").fetchone()[0]
+        versions = conn.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+
+        for row in conn.execute("""SELECT features_json, indicators_json, fingerprint, review_label,
+                                        event_count, observed_day, source_token, snapshot_sha256
+                                 FROM observations"""):
+            checked += 1
+            try:
+                features = json.loads(row["features_json"])
+                indicators = json.loads(row["indicators_json"])
+                if not isinstance(features, dict) or not isinstance(indicators, list):
+                    raise ValueError("Invalid feature structure")
+                payload = {"feature": features, "indicators": indicators,
+                           "fingerprint": row["fingerprint"], "label": row["review_label"],
+                           "event_count": row["event_count"], "day": row["observed_day"],
+                           "source_token": row["source_token"]}
+                digest = sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                if not hmac.compare_digest(digest, row["snapshot_sha256"]):
+                    mismatches += 1
+            except (ValueError, TypeError, KeyError):
+                mismatches += 1
+        if mismatches:
+            errors.append("Stored snapshot hashes do not match stored feature values")
+    return {"kind": "local-archive-consistency-check", "ok": not errors,
+            "sqlite_integrity": sqlite_result, "foreign_key_violations": foreign_key_violations,
+            "versions_checked": checked, "snapshot_mismatches": mismatches,
+            "imports": imports, "versions": versions, "errors": errors,
+            "caution": "This is a consistency check, not a cryptographic authenticity proof or a substitute for offline backups."}

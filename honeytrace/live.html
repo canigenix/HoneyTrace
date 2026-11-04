@@ -26,6 +26,8 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="stat"><div class="name">Behavior alerts</div><div id="alertsCount" class="value">—</div></div>
 <div class="stat"><div class="name">ML outlier flags</div><div id="mlCount" class="value">—</div></div>
 </div>
+<div class="panel alerts"><h2>Local dataset archive <span class="hint">· privacy-minimized SQLite history</span></h2>
+<div id="archiveState" class="hint">Archive disabled. Start live with --archive to save new session revisions automatically.</div></div>
 <div class="panel alerts"><h2>Recurring behavioral fingerprints <span class="hint">· matching activity patterns, not attacker identities</span></h2><div class="pattern-controls"><span id="patternStatus" class="hint">No pattern filter selected</span><button id="clearPattern" class="pattern-button" type="button" hidden>Clear pattern filter</button></div><div id="patterns" class="pattern-list"></div></div>
 <div class="panel alerts"><h2>ML behavioral clusters <span class="hint">· exploratory similarity, not attacker identity</span></h2>
 <div class="pattern-controls"><span id="clusterStatus" class="hint">No cluster filter selected</span><button id="clearCluster" class="pattern-button" type="button" hidden>Clear cluster filter</button></div><div id="clusters" class="pattern-list"></div></div>
@@ -36,7 +38,7 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="panel"><h2>Session investigation</h2><div id="details" class="empty">Select a session to inspect commands and evidence.</div></section>
 </div>
-<div class="footer">HoneyTrace v0.5 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
+<div class="footer">HoneyTrace v0.9 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
 </div>
 <script>
 'use strict';
@@ -46,6 +48,14 @@ let current=null, chosen=null, lastRevision=-1, busy=false, activePattern=null, 
 const nice = value => value===undefined || value===null ? '—' : String(value);
 function status(msg, ok){$('status').textContent=msg;$('statusDot').style.background=ok?'#69d9b4':'#f4b860';}
 function put(id, text){$(id).textContent=nice(text);}
+function renderHealth(monitor, archive){
+ const box=$('error');box.replaceChildren();
+ if(monitor.error){box.append(node('div',`Monitor warning: ${monitor.error}`,'warn'));status('Source unavailable; showing last analysis',false);}
+ else status(`Monitoring ${monitor.source} · checked ${monitor.last_checked?new Date(monitor.last_checked).toLocaleTimeString():'soon'}`,true);
+ if(!archive?.enabled){put('archiveState','Archive disabled. Start live with --archive to save new session revisions automatically.');return;}
+ if(archive.error){put('archiveState','Archiving requires attention; monitoring continues.');box.append(node('div',archive.error,'warn'));return;}
+ put('archiveState',archive.last_success?`Connected · ${archive.origin} · last saved ${new Date(archive.last_success).toLocaleTimeString()} · new versions in last import: ${archive.last_added_versions}`:'Enabled · awaiting first successful snapshot');
+}
 function detail(row){
  const box=$('details');box.className='';box.replaceChildren();
  if(!row){box.className='empty';box.textContent='No matching session selected.';return;}
@@ -81,10 +91,10 @@ function detail(row){
 }
 function render(){
  if(!current)return;
- const {report,alerts,monitor}=current;const all=report.sessions||[];
+ const {report,alerts,monitor,archive}=current;const all=report.sessions||[];
  put('sessionCount',report.meta.sessions);put('sourcesCount',report.meta.unique_sources);put('alertsCount',alerts.length);put('mlCount',report.meta.ml_enabled?all.filter(s=>s.anomaly).length:'N/A');
  put('alertHint',`· showing ${alerts.length} most recent indicators`);
- const error=$('error');error.replaceChildren();if(monitor.error){error.append(node('div',`Monitor warning: ${monitor.error}`,'warn'));status('Source unavailable; showing last analysis',false);}else status(`Monitoring ${monitor.source} · checked ${monitor.last_checked?new Date(monitor.last_checked).toLocaleTimeString(): 'soon'}`,true);
+ renderHealth(monitor,archive);
  const recurring=report.patterns||[];const patternBox=$('patterns');patternBox.replaceChildren();
  if(!recurring.length)patternBox.append(node('div','No recurring fingerprints yet. Generate two similar Cowrie sessions to test grouping.','empty'));
  for(const pattern of recurring.slice(0,10)){
@@ -125,7 +135,7 @@ async function refresh(){
   const response=await fetch('/api/state',{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);
   const data=await response.json();const updated=data.revision!==lastRevision;current=data;
   if(updated){lastRevision=data.revision;render();}else{
-   const m=data.monitor;const e=$('error');e.replaceChildren();if(m.error){e.append(node('div',`Monitor warning: ${m.error}`,'warn'));status('Source unavailable; showing last analysis',false)}else status(`Monitoring ${m.source} · checked ${m.last_checked?new Date(m.last_checked).toLocaleTimeString():'soon'}`,true);
+   renderHealth(data.monitor,data.archive);
   }
  }catch(e){status('Unable to reach local monitor: '+e.message,false)}finally{busy=false;}
 }
