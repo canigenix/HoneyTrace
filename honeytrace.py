@@ -14,6 +14,7 @@ from honeytrace.validation import create_validation_demo, validate_holdout
 from honeytrace.validation_report import write_validation_html
 from honeytrace.curation import audit_dataset, export_review_queue
 from honeytrace.archive import ORIGINS, archive_import, archive_summary, archive_export, archive_check
+from honeytrace.backup import create_backup, verify_backup, restore_backup
 
 
 def main() -> None:
@@ -35,6 +36,8 @@ def main() -> None:
     live.add_argument("--archive", action="store_true", help="Opt in to continuous local SQLite archiving")
     live.add_argument("--archive-store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
     live.add_argument("--archive-origin", choices=ORIGINS, default="unverified")
+    live.add_argument("--backup-hours", type=int, default=0, help="Opt-in automatic archive backups every 1-168 hours (requires --archive)")
+    live.add_argument("--backup-dir", type=Path, default=Path("data/backups"))
     labels = sub.add_parser("labels", help="Export a blank per-session CSV for manual review labels")
     labels.add_argument("input", type=Path, help="Cowrie JSONL file")
     labels.add_argument("--output", type=Path, default=Path("data/session_labels.csv"))
@@ -72,7 +75,29 @@ def main() -> None:
     export = sub.add_parser("store-export", help="Export private pseudonymized feature CSV")
     export.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
     export.add_argument("--output", type=Path, default=Path("data/honeytrace-features.csv"))
+    backup = sub.add_parser("store-backup", help="Create verified SQLite + key backup in a new private directory")
+    backup.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    backup.add_argument("--destination", type=Path, default=None, help="New directory; never overwrites")
+    verify = sub.add_parser("store-verify-backup", help="Verify backup checksums, key and SQLite consistency")
+    verify.add_argument("folder", type=Path)
+    restore = sub.add_parser("store-restore", help="Restore a verified backup to a NEW archive path only")
+    restore.add_argument("folder", type=Path)
+    restore.add_argument("--target", type=Path, default=Path("data/honeytrace-restored.sqlite3"))
     args = parser.parse_args()
+    if args.command in ("store-backup", "store-verify-backup", "store-restore"):
+        try:
+            if args.command == "store-backup":
+                report = create_backup(args.store, destination=args.destination)
+            elif args.command == "store-verify-backup":
+                report = verify_backup(args.folder)
+            else:
+                report = restore_backup(args.folder, target=args.target)
+            print(json.dumps(report, indent=2))
+            if args.command == "store-verify-backup" and not report["ok"]:
+                raise SystemExit(1)
+        except (OSError, ValueError, sqlite3.DatabaseError) as error:
+            parser.error(str(error))
+        return
     if args.command in ("store-import", "store-status", "store-export", "store-check"):
         try:
             if args.command == "store-import":
@@ -155,6 +180,8 @@ def main() -> None:
             parser.error(str(error))
         return
     if args.command == "live":
+        if args.backup_hours < 0 or args.backup_hours > 168 or (args.backup_hours and not args.archive):
+            parser.error("--backup-hours must be 0-168, and requires --archive when enabled")
         if not 2 <= args.interval <= 60:
             parser.error("--interval must be between 2 and 60 seconds")
         if not 1024 <= args.port <= 65535:
@@ -162,7 +189,8 @@ def main() -> None:
         monitor = Monitor(input_path=args.input, source=args.source, container=args.container,
                           container_path=args.container_path, interval=args.interval,
                           enable_ml=not args.no_ml, archive_enabled=args.archive,
-                          archive_store=args.archive_store, archive_origin=args.archive_origin)
+                          archive_store=args.archive_store, archive_origin=args.archive_origin,
+                          backup_interval_seconds=args.backup_hours * 3600, backup_dir=args.backup_dir)
         try:
             serve_dashboard(monitor, port=args.port)
         except OSError as error:

@@ -1,4 +1,4 @@
-# HoneyTrace — Honeypot Intelligence (v0.4)
+# HoneyTrace — Local Honeypot Intelligence (v1.0 release candidate)
 
 A local-first, CPU-friendly tool for analyzing Cowrie SSH/Telnet honeypot JSON logs. It combines **transparent behavioral indicators** and **Isolation Forest anomaly detection** with a standalone, offline HTML dashboard. No cloud service, GPU, external API, or public port is required.
 
@@ -77,7 +77,7 @@ You can check the path with `docker exec honeytrace-cowrie pwd` or `docker logs 
 
 1. Collect labeled real-world sessions (ethically and with permissions) and quantify false positives.
 2. Train/evaluate a supervised multi-label classifier using held-out source groups and time slices.
-3. Add incremental ingestion, alerting and behavioral clustering without ever exposing the dashboard publicly by default.
+3. Keep the live collector isolated, monitor storage reliability, and exercise periodic restore drills.
 
 Not affiliated with Cowrie or StingBox. Cowrie documentation: https://docs.cowrie.org/ .
 
@@ -300,3 +300,39 @@ cryptographic tamper detection**, encryption, or proof of accuracy.
 Read **[docs/CONTINUOUS_ARCHIVE.md](docs/CONTINUOUS_ARCHIVE.md)** before
 interpreting results or making backups. Never upload your `data/` folder,
 manual labels, raw logs, SQLite file, or `.key` to the public repository.
+
+
+## Verified local backups and safe recovery (v1.0 RC1)
+
+HoneyTrace can now use SQLite's consistent online backup mechanism to save your
+**database and matching HMAC key** in a new backup directory, validate both
+checksums and database consistency, and restore to a **new** target path without
+risking overwrite of your active research history. All backups remain local;
+no cloud, authentication service or telemetry is added.
+
+From Windows CMD or PowerShell inside the project:
+
+```powershell
+py honeytrace.py store-backup --destination data/backups/first-backup
+py honeytrace.py store-verify-backup data/backups/first-backup
+py honeytrace.py store-restore data/backups/first-backup --target data/recovery-check.sqlite3
+py honeytrace.py store-check --store data/recovery-check.sqlite3
+```
+
+Choose new backup/restore paths for subsequent runs; they never overwrite
+existing files. You can opt into periodic verified backups while live monitoring
+runs:
+
+```powershell
+py honeytrace.py live --archive --archive-origin controlled-lab --backup-hours 24
+```
+
+**Security:** the backup includes an **unencrypted private key** and linkable
+pseudonymized records. It must be kept in access-controlled or encrypted storage
+and off the source computer for real disaster recovery. The backup is **not** a
+copy of the original Cowrie log or your manual CSV; back those up separately.
+See [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md) for careful recovery steps.
+
+This is a **release candidate**, not yet a certified stable release. Existing
+SQLite schema remains version 1. Automated tests and demo outputs do **not**
+substitute for independent testing of ML detection accuracy.

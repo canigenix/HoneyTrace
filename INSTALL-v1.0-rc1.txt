@@ -1,0 +1,33 @@
+HoneyTrace v1.0 Release Candidate 1 — Backup & Recovery
+======================================================
+
+1. Stop HoneyTrace Live with Ctrl+C. In Windows, extract this update ZIP
+   directly into the project folder containing honeytrace.py.
+   Replace matching SOURCE files. KEEP .git/, data/, output/, existing
+   SQLite database and its .key file intact.
+
+2. In a Windows CMD / PowerShell terminal at the project folder:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py store-check
+   py honeytrace.py store-backup --destination data/backups/v1-rc1-first
+   py honeytrace.py store-verify-backup data/backups/v1-rc1-first
+
+   Use a different new backup directory if the previous one already exists.
+   All backups contain your UNENCRYPTED private HMAC key. Keep them private.
+
+3. Verify restoration to a NEW path (does not overwrite the live database):
+
+   py honeytrace.py store-restore data/backups/v1-rc1-first --target data/v1-rc1-recovery-test.sqlite3
+   py honeytrace.py store-check --store data/v1-rc1-recovery-test.sqlite3
+
+   Start Live, optionally making periodic backups while Live is active:
+
+   py honeytrace.py live --archive --archive-origin controlled-lab --backup-hours 24
+
+Read docs/BACKUP_RECOVERY.md for recovery and protection of the key.
+Do not push backups, raw Cowrie logs, review CSVs or private data to GitHub.
+Source files are compatible with v0.9's SQLite schema; no migration needed.
+
+Research limitation: these reliability tests do not validate ML attack detection
+accuracy. The first stable v1.0 release requires Windows integration testing.

@@ -14,6 +14,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
+import secrets
 from threading import Event, Lock, Thread
 from typing import Any
 import sqlite3
@@ -21,6 +23,7 @@ from urllib.parse import urlsplit
 
 from honeytrace.analyzer import analyze_events, load_events
 from honeytrace.archive import ORIGINS, archive_import
+from honeytrace.backup import create_backup
 
 DEFAULT_COWRIE_LOG = "/cowrie/cowrie-git/var/log/cowrie/cowrie.json"
 MAX_LIVE_FILE_BYTES = 20 * 1024 * 1024
@@ -98,6 +101,8 @@ class Monitor:
         archive_enabled: bool = False,
         archive_store: Path = Path("data/honeytrace-history.sqlite3"),
         archive_origin: str = "unverified",
+        backup_interval_seconds: int = 0,
+        backup_dir: Path = Path("data/backups"),
     ) -> None:
         if source not in ("docker", "file"):
             raise ValueError("source must be 'docker' or 'file'")
@@ -114,6 +119,13 @@ class Monitor:
         self.archive_enabled = archive_enabled
         self.archive_store = Path(archive_store)
         self.archive_origin = archive_origin
+        if backup_interval_seconds < 0 or (backup_interval_seconds and not archive_enabled):
+            raise ValueError("Automatic backup requires an enabled archive and nonnegative interval")
+        self.backup_interval_seconds = backup_interval_seconds
+        self.backup_dir = Path(backup_dir)
+        self._last_backup_at: float | None = None
+        self._backup_success: str | None = None
+        self._backup_error: str | None = None
         self._archived_digest: str | None = None
         self._archive_error: str | None = None
         self._archive_checked: str | None = None
@@ -191,6 +203,22 @@ class Monitor:
                             "Local archive failed; check database/key and file permissions "
                             f"({type(exc).__name__}). Retry is automatic."
                         )
+            # Optional verified online snapshot: failure is isolated from monitoring.
+            # Retry on a future poll; schedule is local to this running process.
+            if self.archive_enabled and self.backup_interval_seconds and self._archive_error is None and self._archive_last_success:
+                now = time.monotonic()
+                if self._last_backup_at is None or now - self._last_backup_at >= self.backup_interval_seconds:
+                    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                    folder = self.backup_dir / f"backup-{stamp}-{secrets.token_hex(4)}"
+                    try:
+                        create_backup(self.archive_store, destination=folder)
+                        with self._lock:
+                            self._last_backup_at = now
+                            self._backup_success = _utc_now()
+                            self._backup_error = None
+                    except (OSError, RuntimeError, ValueError, sqlite3.DatabaseError) as exc:
+                        with self._lock:
+                            self._backup_error = f"Automatic backup failed ({type(exc).__name__}); will retry"
             with self._lock:
                 self._checked = _utc_now()
                 self._error = None
@@ -217,6 +245,9 @@ class Monitor:
                     "last_success": self._archive_last_success,
                     "last_added_versions": self._archive_added_versions,
                     "error": self._archive_error,
+                    "backup_enabled": bool(self.archive_enabled and self.backup_interval_seconds),
+                    "last_backup": self._backup_success,
+                    "backup_error": self._backup_error,
                 },
                 "monitor": {
                     "source": self.source,

@@ -38,7 +38,7 @@ h1{font-size:27px;letter-spacing:-.8px;margin:0}h1 b{color:var(--accent)}h2{font
 <div class="table-scroll"><table><thead><tr><th>Source IP</th><th>Behavior</th><th>Risk</th><th>ML</th><th>Time (UTC)</th></tr></thead><tbody id="rows"></tbody></table></div></section>
 <section class="panel"><h2>Session investigation</h2><div id="details" class="empty">Select a session to inspect commands and evidence.</div></section>
 </div>
-<div class="footer">HoneyTrace v0.9 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
+<div class="footer">HoneyTrace v1.0 RC1 · Authorized local testing only. Behavioral labels and heuristic scores are not proof of an attack. ML scores are relative to collected sessions, not calibrated probabilities. New observations appear automatically every few seconds.</div>
 </div>
 <script>
 'use strict';
@@ -54,7 +54,10 @@ function renderHealth(monitor, archive){
  else status(`Monitoring ${monitor.source} · checked ${monitor.last_checked?new Date(monitor.last_checked).toLocaleTimeString():'soon'}`,true);
  if(!archive?.enabled){put('archiveState','Archive disabled. Start live with --archive to save new session revisions automatically.');return;}
  if(archive.error){put('archiveState','Archiving requires attention; monitoring continues.');box.append(node('div',archive.error,'warn'));return;}
- put('archiveState',archive.last_success?`Connected · ${archive.origin} · last saved ${new Date(archive.last_success).toLocaleTimeString()} · new versions in last import: ${archive.last_added_versions}`:'Enabled · awaiting first successful snapshot');
+ let message=archive.last_success?`Connected · ${archive.origin} · last saved ${new Date(archive.last_success).toLocaleTimeString()} · new versions in last import: ${archive.last_added_versions}`:'Enabled · awaiting first successful snapshot';
+ if(archive.backup_enabled){message+=archive.last_backup?` · last verified backup ${new Date(archive.last_backup).toLocaleTimeString()}`:' · automatic backup pending';}
+ put('archiveState',message);
+ if(archive.backup_error)box.append(node('div',archive.backup_error,'warn'));
 }
 function detail(row){
  const box=$('details');box.className='';box.replaceChildren();
