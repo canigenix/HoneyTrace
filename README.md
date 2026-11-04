@@ -254,3 +254,25 @@ py honeytrace.py audit data/cowrie.json --labels data/review-queue.csv --origin 
 ```
 
 **This is not ML accuracy validation.** Your localhost sessions share a Docker source address and do not establish source-disjoint generalization. Read [docs/DATASET_REVIEW.md](docs/DATASET_REVIEW.md) for privacy, review guidance, and limitations. Use `py honeytrace.py validate ...` for separate labeled holdout datasets when you have them.
+
+## Local session archive (v0.8)
+
+A new **opt-in, append-only local SQLite archive** stores versioned, pseudonymized
+session features, manual review labels, and checksum-based import history.
+Raw Cowrie commands, usernames, passwords and source IPs are not stored in the
+archive. The database and its essential HMAC key are created under `data/`.
+
+```powershell
+py honeytrace.py store-import data/cowrie.json --labels data/review-queue.csv --origin controlled-lab
+py honeytrace.py store-status
+py honeytrace.py store-export
+```
+
+`store-import` skips repeated identical snapshots and adds new versions when
+observed features or reviewed labels change. Imports are **manual**, not yet
+performed by the live poller. `store-export` creates a private features CSV;
+keep it out of public GitHub. **Back up the database and `.key` together.**
+A source-group pseudonym, dataset checksum, or origin declaration does not
+prove real attacker identity or valid ML evaluation provenance.
+
+For instructions and limitations, see [docs/ARCHIVE.md](docs/ARCHIVE.md).

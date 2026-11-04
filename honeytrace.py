@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 
 from honeytrace.analyzer import analyze_events, load_events
@@ -12,6 +13,7 @@ from honeytrace.ml_intelligence import export_label_template, evaluate_session_l
 from honeytrace.validation import create_validation_demo, validate_holdout
 from honeytrace.validation_report import write_validation_html
 from honeytrace.curation import audit_dataset, export_review_queue
+from honeytrace.archive import ORIGINS, archive_import, archive_summary, archive_export
 
 
 def main() -> None:
@@ -55,7 +57,33 @@ def main() -> None:
     audit.add_argument("--labels", type=Path, default=None, help="Optional reviewed CSV (sensor,session,label)")
     audit.add_argument("--origin", choices=("unverified", "controlled-lab", "synthetic", "independent-observations"), default="unverified")
     audit.add_argument("--output", type=Path, default=Path("output/dataset-audit.json"))
+    arch = sub.add_parser("store-import", help="Archive a Cowrie log snapshot as private derived features")
+    arch.add_argument("input", type=Path, help="Existing Cowrie JSONL log")
+    arch.add_argument("--labels", type=Path, default=None, help="Optional reviewed CSV for matching session IDs")
+    arch.add_argument("--origin", choices=ORIGINS, default="unverified")
+    arch.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    status = sub.add_parser("store-status", help="Show aggregate archive counts without private IDs")
+    status.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    export = sub.add_parser("store-export", help="Export private pseudonymized feature CSV")
+    export.add_argument("--store", type=Path, default=Path("data/honeytrace-history.sqlite3"))
+    export.add_argument("--output", type=Path, default=Path("data/honeytrace-features.csv"))
     args = parser.parse_args()
+    if args.command in ("store-import", "store-status", "store-export"):
+        try:
+            if args.command == "store-import":
+                result = archive_import(args.input, store_path=args.store, labels_path=args.labels, origin=args.origin)
+                print(f"Input sessions: {result['sessions_in_input']} | New stored versions: {result['added_versions']} | Already imported: {result['already_imported']}")
+                if result['source_groups_in_input'] <= 1:
+                    print("Dataset note: One source group is insufficient for independent holdout validation.")
+            elif args.command == "store-status":
+                print(json.dumps(archive_summary(args.store), indent=2))
+            else:
+                count = archive_export(args.store, output=args.output)
+                print(f"Wrote {count} privacy-minimized feature rows to {args.output}")
+                print("Keep this CSV local: pseudonyms can be linked across rows.")
+        except (OSError, ValueError, sqlite3.DatabaseError) as error:
+            parser.error(str(error))
+        return
     if args.command in ("review-queue", "audit"):
         try:
             if args.command == "review-queue":

@@ -1,0 +1,32 @@
+HoneyTrace v0.8 — Local Dataset Archive
+=======================================
+
+1. Stop HoneyTrace Live (Ctrl+C) while installing files.
+2. Extract this UPDATE zip into the existing HoneyTrace project folder
+   (the folder containing honeytrace.py). Replace only matching files.
+   Keep .git/, data/, output/ and your original Cowrie logs intact.
+3. In VS Code Windows PowerShell, run:
+
+   py -m unittest discover -s tests -v
+   py honeytrace.py store-import data/cowrie.json --labels data/review-queue.csv --origin controlled-lab
+   py honeytrace.py store-status
+
+4. Optionally export private feature rows (NOT for public GitHub):
+
+   py honeytrace.py store-export
+
+5. The archive and its .key file live in data/. Back them up together.
+   See docs/ARCHIVE.md for privacy and scientific limitations.
+
+6. Review changes, then publish only the code/documentation:
+
+   git status
+   git add honeytrace.py honeytrace/archive.py tests/test_archive.py README.md docs/ARCHIVE.md INSTALL-v0.8.txt
+   git commit -m "Add local privacy-aware dataset archive"
+   git push
+
+Existing live dashboard:
+   py honeytrace.py live
+   http://127.0.0.1:8765
+
+No new packages needed; archive uses Python's sqlite3.
