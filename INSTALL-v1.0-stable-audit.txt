@@ -1,0 +1,23 @@
+HoneyTrace v1.0 Stable-Release Audit Update (for the v1.0.0-rc1 source)
+
+1. Stop HoneyTrace Live with Ctrl+C.
+2. Extract this ZIP into your existing HoneyTrace project folder, allowing
+   source/doc files to be replaced. DO NOT remove .git/, data/, or output/.
+3. In Windows PowerShell or CMD inside that project folder, run:
+
+   py -m unittest discover -s tests -v
+   py tools/release_smoke.py
+   py honeytrace.py store-check
+
+The smoke test uses only disposable synthetic data in a temporary folder;
+real Cowrie logs and the existing archive are never changed by it.
+
+4. Open docs/RELEASE_CHECKLIST.md and perform clean-install/Windows acceptance.
+5. Check git status --short. Do not stage any data/, output/, DB, .key,
+   review CSV or backups. Commit and push source changes, then check Actions.
+
+This package is NOT a v1.0 stable tag or GitHub Release. Don't tag v1.0.0
+until clean Windows tests, backup/recovery, CI and dependency audit pass.
+
+Security: HoneyTrace remains local-only and experimental as an ML detector.
+Never expose its unauthenticated HTTP dashboard or upload private log data.

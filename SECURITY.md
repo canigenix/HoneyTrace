@@ -1,6 +1,6 @@
 # Security policy
 
-HoneyTrace v0.x is experimental research software, not a certified intrusion detection system.
+HoneyTrace v1.0 release candidates are local research software, not certified intrusion detection systems. Its ML detection accuracy has not been independently validated.
 
 ## Responsible use
 
@@ -28,3 +28,13 @@ The `store-restore` command refuses to overwrite an existing DB or key.
 A valid backup checksum is not proof that the content was never maliciously
 modified. The localhost-only dashboard still has no authentication and must
 never be forwarded to a public or LAN-facing address.
+
+## Stable release verification
+
+Before declaring a build stable, run `python tools/release_smoke.py` in a
+fresh virtual environment and follow [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+The smoke test checks that the HTTP dashboard remains loopback-bound and
+rejects untrusted Host headers, and that backups restore to a separate file.
+It does not establish authenticity, security against a hostile local user,
+or accuracy on real-world malicious traffic. Weekly dependency alerts and CI
+vulnerability scanning supplement, but do not replace, manual review.

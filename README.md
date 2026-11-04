@@ -1,4 +1,4 @@
-# HoneyTrace — Local Honeypot Intelligence (v1.0 release candidate)
+# HoneyTrace — Local Honeypot Intelligence (v1.0 release audit candidate)
 
 A local-first, CPU-friendly tool for analyzing Cowrie SSH/Telnet honeypot JSON logs. It combines **transparent behavioral indicators** and **Isolation Forest anomaly detection** with a standalone, offline HTML dashboard. No cloud service, GPU, external API, or public port is required.
 
@@ -269,8 +269,7 @@ py honeytrace.py store-export
 ```
 
 `store-import` skips repeated identical snapshots and adds new versions when
-observed features or reviewed labels change. Imports are **manual**, not yet
-performed by the live poller. `store-export` creates a private features CSV;
+observed features or reviewed labels change. Imports can be **manual** or (since v0.9) **automatic** with `live --archive`. `store-export` creates a private features CSV;
 keep it out of public GitHub. **Back up the database and `.key` together.**
 A source-group pseudonym, dataset checksum, or origin declaration does not
 prove real attacker identity or valid ML evaluation provenance.
@@ -336,3 +335,30 @@ See [docs/BACKUP_RECOVERY.md](docs/BACKUP_RECOVERY.md) for careful recovery step
 This is a **release candidate**, not yet a certified stable release. Existing
 SQLite schema remains version 1. Automated tests and demo outputs do **not**
 substitute for independent testing of ML detection accuracy.
+
+
+## v1.0 stable-release audit (not yet tagged stable)
+
+The release candidate now includes a **disposable end-to-end smoke test** and a
+CI matrix that covers Linux Python 3.11–3.14 and Windows Python 3.14. The tests
+check synthetic parsing, ML execution, offline reporting, archive deduplication,
+backup/restore consistency, live file ingestion, localhost HTTP access, and
+Host-header rejection. No Docker or real log data are used for this smoke test.
+
+From Windows PowerShell or CMD inside the project:
+
+```powershell
+py -m unittest discover -s tests -v
+py tools/release_smoke.py
+py honeytrace.py store-check
+```
+
+The `store-check` step requires an existing local archive; a fresh clone should
+run only the first two commands. **Do not push a stable Git tag** until the
+Windows clean-install test, existing-data recovery drill, and GitHub Actions
+CI/dependency scan pass. Read [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+
+Dependency installation requires network access, but HoneyTrace does not use any
+cloud service to process logs. scikit-learn 1.8+ supports Python 3.11–3.14.
+The ML detection model and its accuracy remain experimental, not independently
+validated against diverse real-world attacks.
